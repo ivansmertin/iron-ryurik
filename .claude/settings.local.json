@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm create:*)",
+      "Bash(where pnpm:*)",
+      "Bash(npm -v)",
+      "Bash(npm install:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs:/c/Users/iwans/AppData/Roaming/npm\")",
+      "Bash(pnpm --version)",
+      "Read(//tmp/**)",
+      "Bash(rm -rf .git)",
+      "Bash(cp -r . C:/Users/iwans/Desktop/Dev/Iron_Rurik_App/)",
+      "Bash(pnpm add:*)",
+      "Bash(rm -rf node_modules)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(npx shadcn@latest init -d --style new-york --base-color neutral --css-variables)",
+      "Bash(npx shadcn@latest init -d)"
+    ]
+  }
+}
