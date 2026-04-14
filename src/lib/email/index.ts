@@ -14,12 +14,12 @@ interface EmailProvider {
 const gmailProvider: EmailProvider = {
   async sendEmail({ to, subject, html }) {
     const transporter = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
+      host: "smtp.gmail.com",
+      port: 587,
       secure: false,
       auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
+        user: env.GMAIL_USER,
+        pass: env.GMAIL_APP_PASSWORD,
       },
     });
 

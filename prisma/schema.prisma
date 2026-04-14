@@ -26,7 +26,7 @@ enum Sport {
 model User {
   id             String   @id @default(uuid()) @db.Uuid
   // id совпадает с Supabase auth.users.id
-  email          String   @unique
+  email          String
   fullName       String
   phone          String?
   role           UserRole @default(client)

@@ -29,7 +29,9 @@
       "Bash(node -e \"const p = require\\('prisma/config'\\); console.log\\(Object.keys\\(p\\)\\)\")",
       "Bash(node -e \"require\\('dotenv'\\)\")",
       "Bash(node -e \"console.log\\(require.resolve\\('dotenv'\\)\\)\")",
-      "Bash(pnpm db:generate)"
+      "Bash(pnpm db:generate)",
+      "Bash(pnpm db:migrate)",
+      "Bash(npx prisma:*)"
     ]
   }
 }
