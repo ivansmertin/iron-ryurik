@@ -45,7 +45,59 @@ export default async function MembershipPlansPage({
         }
       />
 
-      <Card className="border-border/70 shadow-sm">
+      {/* Mobile cards */}
+      <div className="grid gap-3 md:hidden">
+        {plans.length ? (
+          plans.map((plan) => (
+            <Card
+              key={plan.id}
+              className={`border-border/70 shadow-sm ${!plan.isActive ? "opacity-60" : ""}`}
+            >
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium">{plan.name}</p>
+                  <BooleanBadge
+                    value={plan.isActive}
+                    trueLabel="Активен"
+                    falseLabel="Неактивен"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span>{plan.visits} занятий</span>
+                  <span>{plan.durationDays} дн.</span>
+                  <span>{formatMoney(plan.price.toString())}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href={`/admin/memberships/plans/${plan.id}`} />}
+                  >
+                    Редактировать
+                  </Button>
+                  {plan._count.memberships === 0 ? (
+                    <DeleteMembershipPlanButton planId={plan.id} />
+                  ) : (
+                    <Button variant="outline" size="sm" disabled>
+                      Есть выдачи
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Пока нет ни одного плана абонемента.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <Card className="hidden border-border/70 shadow-sm md:block">
         <CardContent className="px-0">
           <Table>
             <TableHeader>

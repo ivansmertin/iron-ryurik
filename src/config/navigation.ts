@@ -1,23 +1,37 @@
-import type { SidebarLink } from "@/components/app-sidebar";
+export type IconName =
+  | "home"
+  | "calendar"
+  | "clipboard-list"
+  | "notebook-pen"
+  | "user"
+  | "clock"
+  | "users"
+  | "credit-card";
 
-export const clientLinks: SidebarLink[] = [
-  { href: "/client", label: "Главная" },
-  { href: "/client/schedule", label: "Расписание" },
-  { href: "/client/bookings", label: "Мои записи" },
-  { href: "/client/diary", label: "Дневник" },
-  { href: "/client/profile", label: "Профиль" },
+export interface NavLink {
+  href: string;
+  label: string;
+  icon: IconName;
+}
+
+export const clientLinks: NavLink[] = [
+  { href: "/client", label: "Главная", icon: "home" },
+  { href: "/client/schedule", label: "Расписание", icon: "calendar" },
+  { href: "/client/bookings", label: "Записи", icon: "clipboard-list" },
+  { href: "/client/diary", label: "Дневник", icon: "notebook-pen" },
+  { href: "/client/profile", label: "Профиль", icon: "user" },
 ];
 
-export const trainerLinks: SidebarLink[] = [
-  { href: "/trainer", label: "Главная" },
-  { href: "/trainer/slots", label: "Мои слоты" },
-  { href: "/trainer/clients", label: "Мои клиенты" },
+export const trainerLinks: NavLink[] = [
+  { href: "/trainer", label: "Главная", icon: "home" },
+  { href: "/trainer/slots", label: "Слоты", icon: "clock" },
+  { href: "/trainer/clients", label: "Клиенты", icon: "users" },
 ];
 
-export const adminLinks: SidebarLink[] = [
-  { href: "/admin", label: "Главная" },
-  { href: "/admin/schedule", label: "Расписание" },
-  { href: "/admin/clients", label: "Клиенты" },
-  { href: "/admin/memberships", label: "Абонементы" },
-  { href: "/admin/profile", label: "Профиль" },
+export const adminLinks: NavLink[] = [
+  { href: "/admin", label: "Главная", icon: "home" },
+  { href: "/admin/schedule", label: "Расписание", icon: "calendar" },
+  { href: "/admin/clients", label: "Клиенты", icon: "users" },
+  { href: "/admin/memberships", label: "Абонементы", icon: "credit-card" },
+  { href: "/admin/profile", label: "Профиль", icon: "user" },
 ];

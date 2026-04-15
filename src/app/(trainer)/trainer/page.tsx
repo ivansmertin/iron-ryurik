@@ -98,7 +98,7 @@ export default async function TrainerDashboardPage() {
 
       {dashboardData && upcomingSlotsData && recentClientsData ? (
         <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
             <DashboardStatCard
               title="Сегодня слотов"
               value={dashboardData.todaySlotsCount}

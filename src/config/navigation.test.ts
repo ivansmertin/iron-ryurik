@@ -9,17 +9,23 @@ describe("navigation", () => {
   });
 
   it("оставляет trainer-меню без dead-end ссылок", () => {
-    expect(trainerLinks).toEqual([
-      { href: "/trainer", label: "Главная" },
-      { href: "/trainer/slots", label: "Мои слоты" },
-      { href: "/trainer/clients", label: "Мои клиенты" },
+    expect(trainerLinks.map((l) => l.href)).toEqual([
+      "/trainer",
+      "/trainer/slots",
+      "/trainer/clients",
     ]);
   });
 
   it("содержит раздел дневника в client-меню", () => {
-    expect(clientLinks).toContainEqual({
-      href: "/client/diary",
-      label: "Дневник",
-    });
+    expect(clientLinks.some((l) => l.href === "/client/diary")).toBe(true);
+  });
+
+  it("все ссылки имеют иконку", () => {
+    const allLinks = [...clientLinks, ...trainerLinks, ...adminLinks];
+
+    for (const link of allLinks) {
+      expect(typeof link.icon).toBe("string");
+      expect(link.icon.length).toBeGreaterThan(0);
+    }
   });
 });

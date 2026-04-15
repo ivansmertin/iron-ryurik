@@ -88,7 +88,54 @@ export default async function SchedulePage({
         ]}
       />
 
-      <Card className="border-border/70 shadow-sm">
+      {/* Mobile cards */}
+      <div className="grid gap-3 md:hidden">
+        {sessions.items.length ? (
+          sessions.items.map((session) => (
+            <Card key={session.id} className="border-border/70 shadow-sm">
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="font-medium">{session.title || "Без названия"}</p>
+                    <p className="text-muted-foreground text-sm">
+                      {formatMoscowDateTime(session.startsAt)}
+                    </p>
+                  </div>
+                  <SessionStatusBadge status={session.status} />
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span>{session.durationMinutes} мин</span>
+                  <span>
+                    Записано: {session.bookings.length}/{session.capacity}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href={`/admin/schedule/${session.id}`} />}
+                  >
+                    Редактировать
+                  </Button>
+                  {session.status === "scheduled" ? (
+                    <CancelSessionButton sessionId={session.id} />
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Для выбранного фильтра занятий пока нет.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <Card className="hidden border-border/70 shadow-sm md:block">
         <CardContent className="px-0">
           <Table>
             <TableHeader>

@@ -46,7 +46,50 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
       <ClientSearchForm initialQuery={query} />
 
-      <Card className="border-border/70 shadow-sm">
+      {/* Mobile cards */}
+      <div className="grid gap-3 md:hidden">
+        {clients.items.length ? (
+          clients.items.map((client) => {
+            const activeMembership = client.memberships[0];
+            return (
+              <Link key={client.id} href={`/admin/clients/${client.id}`}>
+                <Card className="border-border/70 shadow-sm transition-colors hover:bg-accent/40">
+                  <CardContent className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{client.fullName}</p>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {client.email}
+                        </p>
+                      </div>
+                      <BooleanBadge
+                        value={Boolean(activeMembership)}
+                        trueLabel="Есть"
+                        falseLabel="Нет"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <span>{formatSport(client.sport)}</span>
+                      {activeMembership ? (
+                        <span>{activeMembership.plan.name}</span>
+                      ) : null}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })
+        ) : (
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Клиенты по этому запросу не найдены.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <Card className="hidden border-border/70 shadow-sm md:block">
         <CardContent className="px-0">
           <Table>
             <TableHeader>

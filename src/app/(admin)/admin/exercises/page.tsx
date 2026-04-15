@@ -41,7 +41,52 @@ export default async function AdminExercisesPage({
         }
       />
 
-      <Card className="border-border/70 shadow-sm">
+      {/* Mobile cards */}
+      <div className="grid gap-3 md:hidden">
+        {exercises.length ? (
+          exercises.map((exercise) => (
+            <Card
+              key={exercise.id}
+              className={`border-border/70 shadow-sm ${!exercise.isActive ? "opacity-60" : ""}`}
+            >
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium">{exercise.name}</p>
+                  <BooleanBadge
+                    value={exercise.isActive}
+                    trueLabel="Активно"
+                    falseLabel="Неактивно"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span>{exercise.category}</span>
+                  <span>{exercise.equipment}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href={`/admin/exercises/${exercise.id}`} />}
+                  >
+                    Редактировать
+                  </Button>
+                  <DeleteExerciseButton exerciseId={exercise.id} />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Справочник пока пуст.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <Card className="hidden border-border/70 shadow-sm md:block">
         <CardContent className="px-0">
           <Table>
             <TableHeader>

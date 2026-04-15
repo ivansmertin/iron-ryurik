@@ -56,7 +56,53 @@ export default async function TrainerClientsPage({
 
       <ClientSearchForm initialQuery={query} />
 
-      <Card className="border-border/70 shadow-sm">
+      {/* Mobile cards */}
+      <div className="grid gap-3 md:hidden">
+        {clients.items.length ? (
+          clients.items.map((client) => {
+            const program = client.programs[0];
+            return (
+              <Link key={client.id} href={`/trainer/clients/${client.id}`}>
+                <Card className="border-border/70 shadow-sm transition-colors hover:bg-accent/40">
+                  <CardContent className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{client.fullName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatSport(client.sport)}
+                        </p>
+                      </div>
+                    </div>
+                    {program ? (
+                      <div className="text-sm">
+                        <span className="font-medium">{program.name}</span>
+                        <span className="text-muted-foreground">
+                          {" "}
+                          {formatMoscowDate(program.startsAt)}
+                          {program.endsAt ? ` — ${formatMoscowDate(program.endsAt)}` : ""}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Нет программы</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })
+        ) : (
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              {query
+                ? "Клиенты по этому запросу не найдены."
+                : "Пока нет клиентов, закреплённых за вами."}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <Card className="hidden border-border/70 shadow-sm md:block">
         <CardContent className="px-0">
           <Table>
             <TableHeader>

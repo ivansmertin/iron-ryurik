@@ -96,7 +96,7 @@ export default async function AdminDashboardPage() {
       />
 
       {cards ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
           {cards.map((card) => (
             <Card key={card.title}>
               <CardHeader>

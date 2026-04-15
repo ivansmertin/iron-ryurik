@@ -98,61 +98,108 @@ export default async function TrainerSlotsPage({
       />
 
       {slotsData ? (
-        <Card className="border-border/70 shadow-sm">
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Дата и время</TableHead>
-                  <TableHead>Название</TableHead>
-                  <TableHead>Длительность</TableHead>
-                  <TableHead>Статус</TableHead>
-                  <TableHead className="text-right">Действия</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {slotsData.items.length ? (
-                  slotsData.items.map((slot) => {
-                    const canEdit =
-                      slot.status === "scheduled" && slot.startsAt.getTime() > now.getTime();
+        <>
+          {/* Mobile cards */}
+          <div className="grid gap-3 md:hidden">
+            {slotsData.items.length ? (
+              slotsData.items.map((slot) => {
+                const canEdit =
+                  slot.status === "scheduled" && slot.startsAt.getTime() > now.getTime();
+                return (
+                  <Card key={slot.id} className="border-border/70 shadow-sm">
+                    <CardContent className="space-y-3 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="font-medium">{slot.title || "Без названия"}</p>
+                          <p className="text-muted-foreground text-sm">
+                            {formatMoscowDateTime(slot.startsAt)}
+                          </p>
+                        </div>
+                        <SessionStatusBadge status={slot.status} />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {slot.durationMinutes} мин
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          nativeButton={false}
+                          render={<Link href={`/trainer/slots/${slot.id}`} />}
+                        >
+                          {canEdit ? "Редактировать" : "Открыть"}
+                        </Button>
+                        {canEdit ? <TrainerSlotCancelButton slotId={slot.id} /> : null}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            ) : (
+              <Card className="border-border/70 shadow-sm">
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  Для выбранного фильтра пока нет слотов.
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-                    return (
-                      <TableRow key={slot.id}>
-                        <TableCell>{formatMoscowDateTime(slot.startsAt)}</TableCell>
-                        <TableCell className="font-medium">
-                          {slot.title || "Без названия"}
-                        </TableCell>
-                        <TableCell>{slot.durationMinutes} мин</TableCell>
-                        <TableCell>
-                          <SessionStatusBadge status={slot.status} />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              nativeButton={false}
-                              render={<Link href={`/trainer/slots/${slot.id}`} />}
-                            >
-                              {canEdit ? "Редактировать" : "Открыть"}
-                            </Button>
-                            {canEdit ? <TrainerSlotCancelButton slotId={slot.id} /> : null}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
+          {/* Desktop table */}
+          <Card className="hidden border-border/70 shadow-sm md:block">
+            <CardContent className="px-0">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
-                      Для выбранного фильтра пока нет слотов.
-                    </TableCell>
+                    <TableHead>Дата и время</TableHead>
+                    <TableHead>Название</TableHead>
+                    <TableHead>Длительность</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead className="text-right">Действия</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {slotsData.items.length ? (
+                    slotsData.items.map((slot) => {
+                      const canEdit =
+                        slot.status === "scheduled" && slot.startsAt.getTime() > now.getTime();
+                      return (
+                        <TableRow key={slot.id}>
+                          <TableCell>{formatMoscowDateTime(slot.startsAt)}</TableCell>
+                          <TableCell className="font-medium">
+                            {slot.title || "Без названия"}
+                          </TableCell>
+                          <TableCell>{slot.durationMinutes} мин</TableCell>
+                          <TableCell>
+                            <SessionStatusBadge status={slot.status} />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                nativeButton={false}
+                                render={<Link href={`/trainer/slots/${slot.id}`} />}
+                              >
+                                {canEdit ? "Редактировать" : "Открыть"}
+                              </Button>
+                              {canEdit ? <TrainerSlotCancelButton slotId={slot.id} /> : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                        Для выбранного фильтра пока нет слотов.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
       ) : (
         <Card className="border-border/70 shadow-sm">
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
