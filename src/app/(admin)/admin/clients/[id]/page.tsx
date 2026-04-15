@@ -64,7 +64,7 @@ export default async function ClientDetailsPage({
     getClientMemberships(id),
     getClientBookingHistory(id),
     getActiveMembershipPlans(),
-  ]);
+  ] as const);
 
   const sortedMemberships = [...memberships].sort((left, right) => {
     const leftIsCurrent = isMembershipCurrent(left.status, left.endsAt);
