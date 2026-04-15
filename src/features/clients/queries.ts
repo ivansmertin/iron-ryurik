@@ -1,4 +1,9 @@
-import type { Prisma } from "@prisma/client";
+import type {
+  BookingStatus,
+  MembershipStatus,
+  Prisma,
+  Sport,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
 
@@ -6,6 +11,39 @@ type ListClientsInput = {
   page: number;
   pageSize: number;
   query: string;
+};
+
+export type ClientMembership = {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  visitsRemaining: number;
+  visitsTotal: number;
+  status: MembershipStatus;
+  paidAt: Date | null;
+  paidAmount: Prisma.Decimal | null;
+  plan: {
+    name: string;
+  };
+};
+
+export type ClientProfile = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  sport: Sport | null;
+  notes: string | null;
+  createdAt: Date;
+};
+
+export type ClientBookingHistoryItem = {
+  id: string;
+  status: BookingStatus;
+  session: {
+    title: string | null;
+    startsAt: Date;
+  };
 };
 
 function getClientsWhereClause(query: string): Prisma.UserWhereInput {
@@ -103,7 +141,9 @@ export async function listClients({
   };
 }
 
-export async function getClientProfile(clientId: string) {
+export async function getClientProfile(
+  clientId: string,
+): Promise<ClientProfile | null> {
   return withPrismaReadRetry(
     () =>
       prisma.user.findFirst({
@@ -127,7 +167,9 @@ export async function getClientProfile(clientId: string) {
   );
 }
 
-export async function getClientMemberships(clientId: string) {
+export async function getClientMemberships(
+  clientId: string,
+): Promise<ClientMembership[]> {
   return withPrismaReadRetry(
     () =>
       prisma.membership.findMany({
@@ -156,7 +198,9 @@ export async function getClientMemberships(clientId: string) {
   );
 }
 
-export async function getClientBookingHistory(clientId: string) {
+export async function getClientBookingHistory(
+  clientId: string,
+): Promise<ClientBookingHistoryItem[]> {
   return withPrismaReadRetry(
     () =>
       prisma.booking.findMany({
