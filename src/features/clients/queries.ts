@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { MembershipStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
 
@@ -6,6 +6,20 @@ type ListClientsInput = {
   page: number;
   pageSize: number;
   query: string;
+};
+
+export type ClientMembership = {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  visitsRemaining: number;
+  visitsTotal: number;
+  status: MembershipStatus;
+  paidAt: Date | null;
+  paidAmount: Prisma.Decimal | null;
+  plan: {
+    name: string;
+  };
 };
 
 function getClientsWhereClause(query: string): Prisma.UserWhereInput {
@@ -127,7 +141,9 @@ export async function getClientProfile(clientId: string) {
   );
 }
 
-export async function getClientMemberships(clientId: string) {
+export async function getClientMemberships(
+  clientId: string,
+): Promise<ClientMembership[]> {
   return withPrismaReadRetry(
     () =>
       prisma.membership.findMany({
