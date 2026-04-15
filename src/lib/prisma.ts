@@ -8,8 +8,11 @@ function createPrismaClient() {
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
     max: 10,
+    min: 1,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 3_500,
+    maxLifetimeSeconds: 60,
+    query_timeout: 8_000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 10_000,
   });

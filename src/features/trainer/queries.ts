@@ -44,7 +44,6 @@ export type TrainerClientListItem = {
   phone: string | null;
   sport: Prisma.UserGetPayload<{ select: { sport: true } }>["sport"];
   createdAt: Date;
-  notes: string | null;
   programs: Array<{
     id: string;
     name: string;
@@ -322,39 +321,40 @@ export async function listTrainerClients({
 
   const result = await withPrismaReadRetry(
     async () => {
-      const total = await prisma.user.count({ where });
-      const items = await prisma.user.findMany({
-        where,
-        orderBy: {
-          createdAt: "desc",
-        },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          phone: true,
-          sport: true,
-          createdAt: true,
-          notes: true,
-          programs: {
-            where: {
-              trainerId,
-            },
-            orderBy: {
-              startsAt: "desc",
-            },
-            take: 1,
-            select: {
-              id: true,
-              name: true,
-              startsAt: true,
-              endsAt: true,
+      const [total, items] = await Promise.all([
+        prisma.user.count({ where }),
+        prisma.user.findMany({
+          where,
+          orderBy: {
+            createdAt: "desc",
+          },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            sport: true,
+            createdAt: true,
+            programs: {
+              where: {
+                trainerId,
+              },
+              orderBy: {
+                startsAt: "desc",
+              },
+              take: 1,
+              select: {
+                id: true,
+                name: true,
+                startsAt: true,
+                endsAt: true,
+              },
             },
           },
-        },
-      });
+        }),
+      ]);
 
       return {
         total,
@@ -410,6 +410,7 @@ export async function getTrainerClientById(
                 createdAt: "desc",
               },
             ],
+            take: 50,
             select: {
               id: true,
               name: true,

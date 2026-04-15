@@ -50,6 +50,7 @@ model User {
 
   @@index([role])
   @@index([email])
+  @@index([role, deletedAt, createdAt(sort: Desc)])
 }
 
 model TrainerProfile {
@@ -106,6 +107,7 @@ model Membership {
 
   @@index([userId, status])
   @@index([endsAt])
+  @@index([userId, status, endsAt])
 }
 
 // ============ РАСПИСАНИЕ И ЗАПИСЬ ============
@@ -260,6 +262,8 @@ model Program {
 
   @@index([clientId])
   @@index([trainerId])
+  @@index([trainerId, clientId])
+  @@index([trainerId, startsAt(sort: Desc)])
 }
 
 model WorkoutLog {

@@ -48,42 +48,44 @@ export async function listClients({
 
   const result = await withPrismaReadRetry(
     async () => {
-      const total = await prisma.user.count({ where });
-      const items = await prisma.user.findMany({
-        where,
-        orderBy: {
-          createdAt: "desc",
-        },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          sport: true,
-          createdAt: true,
-          memberships: {
-            where: {
-              status: "active",
-              endsAt: {
-                gte: now,
+      const [total, items] = await Promise.all([
+        prisma.user.count({ where }),
+        prisma.user.findMany({
+          where,
+          orderBy: {
+            createdAt: "desc",
+          },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            sport: true,
+            createdAt: true,
+            memberships: {
+              where: {
+                status: "active",
+                endsAt: {
+                  gte: now,
+                },
               },
-            },
-            orderBy: {
-              endsAt: "desc",
-            },
-            take: 1,
-            select: {
-              id: true,
-              plan: {
-                select: {
-                  name: true,
+              orderBy: {
+                endsAt: "desc",
+              },
+              take: 1,
+              select: {
+                id: true,
+                plan: {
+                  select: {
+                    name: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
+        }),
+      ]);
 
       return {
         total,

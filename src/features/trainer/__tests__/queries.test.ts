@@ -45,7 +45,6 @@ describe("trainer queries", () => {
         phone: null,
         sport: "running",
         createdAt: new Date("2026-04-10T10:00:00.000Z"),
-        notes: null,
         programs: [
           {
             id: "program-1",
@@ -156,6 +155,7 @@ describe("trainer queries", () => {
               createdAt: "desc",
             },
           ],
+          take: 50,
           select: {
             id: true,
             name: true,
