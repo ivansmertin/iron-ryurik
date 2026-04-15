@@ -1,5 +1,14 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
+
+type ActiveMembershipPlan = {
+  id: string;
+  name: string;
+  visits: number;
+  durationDays: number;
+  price: Prisma.Decimal;
+};
 
 export async function listMembershipPlans() {
   return withPrismaReadRetry(() =>
@@ -43,7 +52,7 @@ export async function getMembershipPlanById(id: string) {
   );
 }
 
-export async function getActiveMembershipPlans() {
+export async function getActiveMembershipPlans(): Promise<ActiveMembershipPlan[]> {
   return withPrismaReadRetry(() =>
     prisma.membershipPlan.findMany({
       where: {
