@@ -13,6 +13,26 @@ type ListClientsInput = {
   query: string;
 };
 
+type ListedClient = {
+  id: string;
+  fullName: string;
+  email: string;
+  sport: Sport | null;
+  createdAt: Date;
+  memberships: Array<{
+    id: string;
+    plan: {
+      name: string;
+    };
+  }>;
+};
+
+type ListClientsResult = {
+  total: number;
+  totalPages: number;
+  items: ListedClient[];
+};
+
 export type ClientMembership = {
   id: string;
   startsAt: Date;
@@ -80,7 +100,7 @@ export async function listClients({
   page,
   pageSize,
   query,
-}: ListClientsInput) {
+}: ListClientsInput): Promise<ListClientsResult> {
   const where = getClientsWhereClause(query);
   const now = new Date();
 
