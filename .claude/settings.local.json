@@ -31,7 +31,12 @@
       "Bash(node -e \"console.log\\(require.resolve\\('dotenv'\\)\\)\")",
       "Bash(pnpm db:generate)",
       "Bash(pnpm db:migrate)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "Bash(Remove-Item -Recurse -Force .next)",
+      "Bash(rm -rf .next)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm test:*)",
+      "Bash(timeout 15 pnpm dev)"
     ]
   }
 }

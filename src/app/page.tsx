@@ -1,11 +1,9 @@
 import { redirect } from "next/navigation";
+import {
+  getCanonicalRoleWithFallback,
+  getRoleHomeRoute,
+} from "@/features/auth/role";
 import { createClient } from "@/lib/supabase/server";
-
-const ROLE_ROUTES: Record<string, string> = {
-  client: "/client",
-  trainer: "/trainer",
-  admin: "/admin",
-};
 
 export default async function Home() {
   const supabase = await createClient();
@@ -14,8 +12,11 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    const role = (user.user_metadata?.role as string) || "client";
-    redirect(ROLE_ROUTES[role] || "/client");
+    const role = await getCanonicalRoleWithFallback(
+      user.id,
+      user.user_metadata?.role as string | undefined,
+    );
+    redirect(getRoleHomeRoute(role));
   }
 
   redirect("/login");

@@ -1,0 +1,1 @@
+export const CANCELLATION_DEADLINE_HOURS = 12;

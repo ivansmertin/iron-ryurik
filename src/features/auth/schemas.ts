@@ -24,3 +24,21 @@ export const registerSchema = z
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.email("Введите корректный email"),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    password: z.string().min(8, "Минимум 8 символов"),
+    passwordConfirm: z.string(),
+  })
+  .refine((data) => data.password === data.passwordConfirm, {
+    message: "Пароли не совпадают",
+    path: ["passwordConfirm"],
+  });
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

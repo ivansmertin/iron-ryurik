@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { signOut } from "@/features/auth/actions";
 
 function getInitials(name: string) {
   return name
@@ -25,9 +27,11 @@ export function UserMenu({
   fullName: string;
   email: string;
 }) {
+  const [, startTransition] = useTransition();
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent">
+      <DropdownMenuTrigger className="flex min-h-10 items-center gap-2 rounded-xl px-2.5 py-1.5 transition-colors hover:bg-accent">
         <Avatar className="h-8 w-8">
           <AvatarFallback>{getInitials(fullName)}</AvatarFallback>
         </Avatar>
@@ -35,22 +39,17 @@ export function UserMenu({
           {fullName}
         </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-64 rounded-xl">
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium">{fullName}</p>
           <p className="text-muted-foreground text-xs">{email}</p>
         </div>
         <DropdownMenuSeparator />
-        <form action="/logout" method="POST">
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              (e.target as HTMLElement).closest("form")?.requestSubmit();
-            }}
-          >
-            Выйти
-          </DropdownMenuItem>
-        </form>
+        <DropdownMenuItem
+          onClick={() => startTransition(() => signOut())}
+        >
+          Выйти
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

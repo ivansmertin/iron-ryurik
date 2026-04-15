@@ -13,7 +13,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InlineMessage } from "@/components/ui/inline-message";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { signUp } from "@/features/auth/actions";
 
 const SPORT_OPTIONS = [
@@ -33,13 +36,13 @@ export default function RegisterPage() {
   }, [state]);
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm border-border/70 shadow-sm">
       <CardHeader className="text-center">
         <Logo className="mb-2 block" />
         <CardTitle>Регистрация</CardTitle>
         <CardDescription>Создайте аккаунт</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-1">
         <form action={action} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="fullName">Имя и фамилия</Label>
@@ -79,40 +82,34 @@ export default function RegisterPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="sport">Вид спорта</Label>
-            <select
-              id="sport"
-              name="sport"
-              className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            >
+            <Select id="sport" name="sport">
               {SPORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/30 px-3 py-2">
+            <Checkbox
               id="acceptRules"
               name="acceptRules"
               required
-              className="h-4 w-4 rounded border"
             />
             <Label htmlFor="acceptRules" className="text-sm font-normal">
               Согласен с правилами зала
             </Label>
           </div>
           {state?.error ? (
-            <p className="text-sm text-red-600" role="alert">
+            <InlineMessage tone="error" role="alert">
               {state.error}
-            </p>
+            </InlineMessage>
           ) : null}
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Регистрация..." : "Зарегистрироваться"}
           </Button>
         </form>
-        <p className="text-muted-foreground mt-4 text-center text-sm">
+        <p className="text-muted-foreground mt-5 text-center text-sm">
           Уже есть аккаунт?{" "}
           <Link href="/login" className="text-primary underline">
             Войти

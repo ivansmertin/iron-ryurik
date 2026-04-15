@@ -1,27 +1,34 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getAuthErrorMessage } from "@/features/auth/errors";
+import {
+  buildResetPasswordRedirectUrl,
+  requestPasswordResetEmail,
+} from "@/features/auth/password";
+import { getCanonicalRoleWithFallback, getRoleHomeRoute } from "@/features/auth/role";
 import { createClient } from "@/lib/supabase/server";
-import { loginSchema, registerSchema } from "./schemas";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  registerSchema,
+} from "./schemas";
 
 type ActionResult = { error: string } | undefined;
-
-const ROLE_ROUTES: Record<string, string> = {
-  client: "/client",
-  trainer: "/trainer",
-  admin: "/admin",
-};
+export type PasswordResetRequestState =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      error: string;
+    }
+  | undefined;
 
 function mapSupabaseErrorMessage(error: { message?: string } | null) {
-  if (!error?.message) {
-    return "Неизвестная ошибка авторизации";
-  }
-
-  if (error.message === "fetch failed") {
-    return "Не удалось подключиться к Supabase Auth. Проверьте сеть, DNS, VPN или доступ к домену проекта.";
-  }
-
-  return error.message;
+  return getAuthErrorMessage(error);
 }
 
 export async function signIn(
@@ -35,23 +42,31 @@ export async function signIn(
     return { error: parsed.error.issues[0].message };
   }
 
-  console.log("[signIn] input:", parsed.data);
-
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.password,
   });
 
-  console.log("[signIn] supabase response:", { data, error });
-
   if (error) {
-    console.error("[signIn] supabase error:", error);
     return { error: mapSupabaseErrorMessage(error) };
   }
 
-  const role = (data.user.user_metadata?.role as string) || "client";
-  redirect(ROLE_ROUTES[role] || "/client");
+  if (!data.user) {
+    return { error: "Не удалось получить профиль пользователя после входа." };
+  }
+
+  const role = await getCanonicalRoleWithFallback(
+    data.user.id,
+    data.user.user_metadata?.role as string | undefined,
+  );
+  redirect(getRoleHomeRoute(role));
+}
+
+export async function signOut(): Promise<never> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
 }
 
 export async function signUp(
@@ -68,8 +83,6 @@ export async function signUp(
     return { error: parsed.error.issues[0].message };
   }
 
-  console.log("[signUp] input:", parsed.data);
-
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
@@ -83,10 +96,7 @@ export async function signUp(
     },
   });
 
-  console.log("[signUp] supabase response:", { data, error });
-
   if (error) {
-    console.error("[signUp] supabase error:", error);
     return { error: mapSupabaseErrorMessage(error) };
   }
 
@@ -94,5 +104,49 @@ export async function signUp(
     return { error: "Регистрация успешна. Проверьте email для подтверждения." };
   }
 
-  redirect("/client");
+  if (!data.user) {
+    return { error: "Не удалось получить профиль пользователя после регистрации." };
+  }
+
+  const role = await getCanonicalRoleWithFallback(
+    data.user.id,
+    data.user.user_metadata?.role as string | undefined,
+  );
+  redirect(getRoleHomeRoute(role));
+}
+
+export async function requestPasswordReset(
+  _prev: PasswordResetRequestState,
+  formData: FormData,
+): Promise<PasswordResetRequestState> {
+  const raw = Object.fromEntries(formData);
+  const parsed = forgotPasswordSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const headersList = await headers();
+  const origin =
+    headersList.get("origin") ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    "http://localhost:3000";
+  const redirectTo = buildResetPasswordRedirectUrl(origin);
+
+  const result = await requestPasswordResetEmail(
+    supabase,
+    parsed.data.email,
+    redirectTo,
+  );
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  return {
+    ok: true,
+    message:
+      "Если адрес существует, мы отправили письмо со ссылкой для восстановления пароля.",
+  };
 }

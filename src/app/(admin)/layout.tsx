@@ -11,13 +11,13 @@ export default async function AdminLayout({
   const user = await requireUser("admin");
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-dvh flex-col md:h-screen md:flex-row">
       <AppSidebar links={adminLinks} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 items-center justify-end border-b px-4">
+        <header className="bg-background/80 flex h-14 items-center justify-end border-b border-border/70 px-4 backdrop-blur">
           <UserMenu fullName={user.fullName} email={user.email} />
         </header>
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

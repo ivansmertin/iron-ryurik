@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InlineMessage } from "@/components/ui/inline-message";
 import { Label } from "@/components/ui/label";
 import { signIn } from "@/features/auth/actions";
 
@@ -24,13 +25,13 @@ export default function LoginPage() {
   }, [state]);
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm border-border/70 shadow-sm">
       <CardHeader className="text-center">
         <Logo className="mb-2 block" />
         <CardTitle>Вход</CardTitle>
         <CardDescription>Введите данные для входа</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-1">
         <form action={action} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -53,15 +54,20 @@ export default function LoginPage() {
             />
           </div>
           {state?.error ? (
-            <p className="text-sm text-red-600" role="alert">
+            <InlineMessage tone="error" role="alert">
               {state.error}
-            </p>
+            </InlineMessage>
           ) : null}
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Входим..." : "Войти"}
           </Button>
         </form>
-        <p className="text-muted-foreground mt-4 text-center text-sm">
+        <p className="text-muted-foreground mt-5 text-center text-sm">
+          <Link href="/forgot-password" className="text-primary underline">
+            Забыли пароль?
+          </Link>
+        </p>
+        <p className="text-muted-foreground mt-3 text-center text-sm">
           Нет аккаунта?{" "}
           <Link href="/register" className="text-primary underline">
             Зарегистрироваться
