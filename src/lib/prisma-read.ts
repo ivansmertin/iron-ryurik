@@ -7,7 +7,7 @@ export async function withPrismaReadRetry<T>(
   operation: () => Promise<T>,
   retries = 1,
   context = "prisma.read",
-) {
+): Promise<T> {
   const startedAt = Date.now();
   let attempt = 0;
 
