@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm create:*)",
+      "Bash(where pnpm:*)",
+      "Bash(npm -v)",
+      "Bash(npm install:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs:/c/Users/iwans/AppData/Roaming/npm\")",
+      "Bash(pnpm --version)",
+      "Read(//tmp/**)",
+      "Bash(rm -rf .git)",
+      "Bash(cp -r . C:/Users/iwans/Desktop/Dev/Iron_Rurik_App/)",
+      "Bash(pnpm add:*)",
+      "Bash(rm -rf node_modules)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(npx shadcn@latest init -d --style new-york --base-color neutral --css-variables)",
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add input label card form dialog sonner dropdown-menu avatar badge separator tabs -y)",
+      "Bash(npx shadcn@latest add form -y)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/zod/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/@t3-oss/env-nextjs/package.json'\\).version\\)\")",
+      "Bash(node -e \"const z = require\\('zod/v4'\\); console.log\\(typeof z.url, typeof z.email, typeof z.string\\)\")",
+      "Bash(pnpm lint:*)",
+      "Bash(SKIP_ENV_VALIDATION=1 pnpm typecheck)",
+      "Bash(DATABASE_URL=\"postgresql://dummy:dummy@localhost:5432/dummy\" DIRECT_URL=\"postgresql://dummy:dummy@localhost:5432/dummy\" pnpm db:generate)",
+      "Bash(node -e ':*)",
+      "Bash(node -e \"const p = require\\('prisma/config'\\); console.log\\(Object.keys\\(p\\)\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\)\")",
+      "Bash(node -e \"console.log\\(require.resolve\\('dotenv'\\)\\)\")",
+      "Bash(pnpm db:generate)",
+      "Bash(pnpm db:migrate)",
+      "Bash(npx prisma:*)",
+      "Bash(Remove-Item -Recurse -Force .next)",
+      "Bash(rm -rf .next)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm test:*)",
+      "Bash(timeout 15 pnpm dev)"
+    ]
+  }
+}

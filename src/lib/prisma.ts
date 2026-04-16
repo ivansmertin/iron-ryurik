@@ -12,7 +12,9 @@ function createPrismaClient() {
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 3_500,
     maxLifetimeSeconds: 60,
-    query_timeout: 8_000,
+    // Queries against remote Supabase/Postgres can be slower than local dev.
+    // Keep this timeout high enough to avoid false positives on occasional slow reads.
+    query_timeout: 30_000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 10_000,
   });
@@ -45,3 +47,18 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+export async function reconnectPrismaClient() {
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    console.error("[prisma] failed to disconnect before reconnect", error);
+  }
+
+  try {
+    await prisma.$connect();
+  } catch (error) {
+    console.error("[prisma] failed to reconnect", error);
+    throw error;
+  }
+}

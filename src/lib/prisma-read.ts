@@ -2,6 +2,7 @@ import {
   isTransientPrismaConnectionError,
   logPrismaError,
 } from "@/lib/prisma-errors";
+import { reconnectPrismaClient } from "@/lib/prisma";
 
 export async function withPrismaReadRetry<T>(
   operation: () => Promise<T>,
@@ -21,6 +22,9 @@ export async function withPrismaReadRetry<T>(
       }
 
       attempt += 1;
+      await reconnectPrismaClient().catch((reconnectError) => {
+        console.error("[prisma.read] failed to reconnect after transient error", reconnectError);
+      });
       await new Promise((resolve) => setTimeout(resolve, 150));
     }
   }

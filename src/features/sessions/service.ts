@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { subHours } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import { withPrismaReadRetry } from "@/lib/prisma-read";
 
 type SessionMutationClient = Pick<
   Prisma.TransactionClient,
@@ -127,15 +128,20 @@ export async function markPastSessionsCompleted(
   db = prisma,
   now = new Date(),
 ) {
-  return db.session.updateMany({
-    where: {
-      status: "scheduled",
-      startsAt: {
-        lt: subHours(now, 6),
-      },
-    },
-    data: {
-      status: "completed",
-    },
-  });
+  return withPrismaReadRetry(
+    () =>
+      db.session.updateMany({
+        where: {
+          status: "scheduled",
+          startsAt: {
+            lt: subHours(now, 6),
+          },
+        },
+        data: {
+          status: "completed",
+        },
+      }),
+    2,
+    "sessions.markPastSessionsCompleted",
+  );
 }

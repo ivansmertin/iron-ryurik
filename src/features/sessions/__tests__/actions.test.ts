@@ -50,7 +50,7 @@ describe("createSession", () => {
     const formData = new FormData();
     formData.set("title", "Тестовая сессия");
     formData.set("description", "");
-    formData.set("date", "2026-04-15");
+    formData.set("date", "2027-04-15");
     formData.set("startTime", "10:00");
     formData.set("durationMinutes", "60");
     formData.set("capacity", "6");

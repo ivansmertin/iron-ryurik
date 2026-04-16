@@ -13,4 +13,14 @@ describe("withPrismaReadRetry", () => {
     await expect(withPrismaReadRetry(operation)).resolves.toBe("ok");
     expect(operation).toHaveBeenCalledTimes(2);
   });
+
+  it("retries transient query timeout errors", async () => {
+    const operation = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Query read timeout"))
+      .mockResolvedValueOnce("ok");
+
+    await expect(withPrismaReadRetry(operation)).resolves.toBe("ok");
+    expect(operation).toHaveBeenCalledTimes(2);
+  });
 });

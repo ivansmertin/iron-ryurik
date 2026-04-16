@@ -11,6 +11,9 @@ const TRANSIENT_PRISMA_ERROR_FRAGMENTS = [
   "server has closed the connection",
   "connection error",
   "connection timed out",
+  "query read timeout",
+  "query timeout",
+  "client has encountered a connection error and is not queryable",
 ];
 
 function getErrorMessage(error: unknown) {

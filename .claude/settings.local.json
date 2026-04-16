@@ -36,7 +36,16 @@
       "Bash(rm -rf .next)",
       "Bash(pnpm typecheck:*)",
       "Bash(pnpm test:*)",
-      "Bash(timeout 15 pnpm dev)"
+      "Bash(timeout 15 pnpm dev)",
+      "Bash(grep -E \"\\\\.\\(md|txt\\)$\")",
+      "Bash(grep -E \"\\\\.md$\")",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(npx next:*)"
     ]
   }
 }
