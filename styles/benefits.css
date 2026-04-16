@@ -1,0 +1,52 @@
+@layer components {
+  /* Сетка преимуществ с большим пространством между карточками */
+  .benefits-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 lg:gap-16;
+  }
+
+  /* Карточка преимуществ: акцент на иконке и заголовке */
+  .benefit-card {
+    /* Инлайн замена surface-glow для стабильности компиляции */
+    @apply relative overflow-hidden bg-card border border-border shadow-soft transition-all duration-500 ease-out;
+    @apply p-10 md:p-12 h-full flex flex-col items-start text-left;
+  }
+
+  .benefit-card:hover {
+    @apply border-primary/20 -translate-y-3 shadow-xl;
+  }
+
+  .benefit-card__icon {
+    @apply w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-8 text-primary shadow-soft;
+    /* Использование переменной радиуса */
+    border-radius: var(--radius-xl);
+  }
+
+  .benefit-card__title {
+    @apply text-2xl font-semibold mb-4;
+  }
+
+  .benefit-card__description {
+    @apply text-muted-foreground leading-relaxed;
+  }
+
+  /* Карточка статистики: максимальный воздух и чистота */
+  .stat-card {
+    /* Инлайн замена surface-glow */
+    @apply relative overflow-hidden transition-all duration-500 ease-out;
+    @apply flex flex-col items-center justify-center p-12 text-center rounded-2xl;
+    @apply border border-primary/5 bg-background shadow-soft;
+  }
+
+  .stat-card:hover {
+    @apply border-primary/20 -translate-y-3 shadow-xl;
+  }
+
+  .stat-card__value {
+    @apply text-5xl md:text-6xl font-bold mb-4 tracking-tighter;
+    color: var(--primary);
+  }
+
+  .stat-card__label {
+    @apply text-sm uppercase tracking-widest font-semibold text-muted-foreground/80;
+  }
+}

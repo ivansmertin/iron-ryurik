@@ -1,6 +1,7 @@
 import { requireUser } from "@/features/auth/get-user";
 import { AppSidebar, MobileBottomNav } from "@/components/app-sidebar";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { adminLinks } from "@/config/navigation";
 
 export default async function AdminLayout({
@@ -18,7 +19,10 @@ export default async function AdminLayout({
           <span className="text-lg font-bold tracking-tight md:hidden">
             Железный Рюрик
           </span>
-          <UserMenu fullName={user.fullName} email={user.email} />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <UserMenu fullName={user.fullName} email={user.email} />
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6">
           {children}

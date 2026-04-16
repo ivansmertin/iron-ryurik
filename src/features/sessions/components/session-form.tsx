@@ -58,7 +58,7 @@ export function SessionForm({
       : updateSessionSchema(
           updateOptions ?? {
             hasActiveBookings: false,
-            currentStartsAt: new Date(),
+            currentStartsAt: new Date(0), // Stable fallback for schema typing
             currentDurationMinutes: 60,
             currentCapacity: 8,
           },

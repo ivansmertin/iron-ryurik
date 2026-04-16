@@ -1,0 +1,21 @@
+/* Header Specific Styles */
+
+.header-container {
+  background-color: var(--background);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: var(--glass-blur);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Эффект для виджета переключения темы */
+.theme-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -1,0 +1,33 @@
+@layer components {
+  /* Главный экран: акцент на центрировании и плавном флоу */
+  .hero {
+    @apply relative flex flex-col items-center justify-center text-center;
+    @apply pt-28 pb-20 md:pt-44 md:pb-32 lg:pt-60 lg:pb-48;
+    background: radial-gradient(circle at 50% 0%, oklch(from var(--primary) l c h / 0.05), transparent 70%);
+  }
+
+  .hero__content {
+    @apply relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center;
+  }
+
+  .hero__title {
+    /* Градиентный или просто очень чистый крупный заголовок */
+    @apply text-5xl md:text-7xl lg:text-8xl font-bold leading-[1.05] mb-8 animate-in fade-in slide-in-from-bottom-8 duration-1000;
+  }
+
+  .hero__description {
+    @apply text-lg md:text-2xl text-muted-foreground max-w-2xl mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-200;
+  }
+
+  .hero__actions {
+    @apply flex flex-col sm:flex-row items-center gap-6 animate-in fade-in slide-in-from-bottom-16 duration-1000 delay-500;
+  }
+
+  /* Визуальный якорь / свечение для глубины */
+  .hero__glow {
+    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10;
+    @apply w-[100vw] h-[600px] opacity-30 blur-[140px];
+    background: radial-gradient(circle, oklch(from var(--primary) l c h / 0.15), transparent 60%);
+    pointer-events: none;
+  }
+}

@@ -42,3 +42,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# assistant and ide
+.claude/
+.continue/
+.mcp.json
+skills-lock.json
+files_list.txt

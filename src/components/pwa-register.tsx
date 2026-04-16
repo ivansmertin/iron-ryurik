@@ -10,10 +10,14 @@ export function PwaRegister() {
 
     // Avoid hydration/cache issues during local development.
     if (process.env.NODE_ENV !== "production") {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
+      void navigator.serviceWorker.getRegistrations().then((registrations) => {
         registrations.forEach((registration) => {
           void registration.unregister();
         });
+      });
+      // Clear all caches to ensure fresh dev chunks
+      void caches.keys().then((keys) => {
+        keys.forEach((key) => void caches.delete(key));
       });
       return;
     }

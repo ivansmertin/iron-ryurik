@@ -1,0 +1,49 @@
+@keyframes logo-path {
+  0% { stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; }
+  20% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+@keyframes show-text {
+  0% { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes show-subtext {
+  0% { transform: translateY(10px); opacity: 0; letter-spacing: 0.1em; }
+  100% { transform: translateY(0); opacity: 1; letter-spacing: 0.4em; }
+}
+
+@keyframes progress-reveal {
+  0% { transform: scaleX(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+
+@layer utilities {
+  .transition-soft { transition: all var(--duration-normal) var(--ease-premium); }
+  .transition-spring { transition: all var(--duration-normal) var(--ease-spring); }
+  .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    will-change: transform, opacity;
+    transition: opacity var(--duration-reveal) var(--ease-premium), transform var(--duration-reveal) var(--ease-premium);
+  }
+  .reveal.active { opacity: 1; transform: translateY(0); }
+  .delay-100 { transition-delay: 100ms; }
+  .delay-200 { transition-delay: 200ms; }
+  .delay-300 { transition-delay: 300ms; }
+  .delay-500 { transition-delay: 500ms; }
+  .reveal-left { transform: translateX(-50px); }
+  .reveal-right { transform: translateX(50px); }
+  .reveal-scale { transform: scale(0.94); }
+  .hover-premium { transition: transform var(--duration-normal) var(--ease-spring), box-shadow var(--duration-normal) var(--ease-premium), background-color var(--duration-normal) var(--ease-premium); }
+  .hover-premium:hover { transform: translateY(-5px) scale(1.01); }
+  .expand-content { max-height: 0; overflow: hidden; transition: max-height var(--duration-slow) var(--ease-premium); }
+  .expand-content.active { max-height: 1000px; }
+  .animate-logo-path { animation: logo-path 2.5s var(--ease-premium) forwards; }
+  .animate-logo-path-delayed { animation: logo-path 2.5s var(--ease-premium) 0.5s forwards; }
+  .animate-show-text { animation: show-text 1.2s var(--ease-premium) 0.8s backwards; }
+  .animate-show-subtext { animation: show-subtext 1.5s var(--ease-premium) 1s backwards; }
+  .animate-progress-reveal { animation: progress-reveal 3s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+}

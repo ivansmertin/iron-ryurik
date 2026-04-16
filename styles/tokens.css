@@ -1,0 +1,131 @@
+:root {
+  /* --- Цветовая палитра: Чистота и благородные акценты --- */
+  
+  /* Основные фоны */
+  --background: oklch(0.99 0.002 240); /* Ультра-чистый холодный белый */
+  --foreground: oklch(0.25 0.02 240);   /* Глубокий антрацит с синим подтоном */
+  
+  /* Контейнеры */
+  --card: oklch(1 0.002 240);
+  --card-foreground: oklch(0.25 0.02 240);
+  
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0.02 240);
+  
+  /* Акценты - "Noble Blue" */
+  --primary: oklch(0.55 0.16 255);      /* Насыщенный, но не "кричащий" синий */
+  --primary-foreground: oklch(0.99 0.005 240);
+  
+  --secondary: oklch(0.96 0.012 250);   /* Воздушный вторичный фон */
+  --secondary-foreground: oklch(0.3 0.03 250);
+  
+  --muted: oklch(0.97 0.008 240);
+  --muted-foreground: oklch(0.5 0.015 240);
+  
+  --accent: oklch(0.94 0.035 255);      /* Свежий акцентный фон */
+  --accent-foreground: oklch(0.45 0.15 255);
+  
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 25.5);
+  
+  /* Системные */
+  --border: oklch(0.92 0.01 240);
+  --input: oklch(0.92 0.01 240);
+  --ring: oklch(0.55 0.16 255 / 0.25);
+
+  /* --- Тени: Эффект парения (Soft & Airy) --- */
+  
+  --shadow-soft: 
+    0 4px 12px oklch(0 0 0 / 0.03), 
+    0 1px 4px oklch(0 0 0 / 0.02);
+    
+  --shadow-main: 
+    0 12px 32px -4px oklch(0.25 0.05 250 / 0.08), 
+    0 4px 12px -2px oklch(0.25 0.05 250 / 0.04);
+    
+  --shadow-xl: 
+    0 24px 64px -12px oklch(0.25 0.05 250 / 0.12), 
+    0 8px 24px -6px oklch(0.25 0.05 250 / 0.06);
+
+  /* --- Glassmorphism: Эффект матового стекла --- */
+  
+  --glass-blur: blur(12px);
+  --glass-bg: oklch(1 0 0 / 0.65);
+  --glass-border: oklch(1 0 0 / 0.15);
+  --glass-shadow: var(--shadow-main);
+
+  /* --- Радиусы: Modern Squircle (плавность) --- */
+  
+  --radius: 0.875rem;                       /* Базовый 14px */
+  --radius-sm: calc(var(--radius) * 0.6);   /* ~8px */
+  --radius-md: calc(var(--radius) * 0.8);   /* ~11px */
+  --radius-lg: var(--radius);               /* 14px */
+  --radius-xl: calc(var(--radius) * 1.6);   /* ~22px */
+  --radius-2xl: calc(var(--radius) * 2.4);  /* ~33px */
+  
+  /* Sidebar Specific */
+  --sidebar: oklch(0.98 0.005 240);
+  --sidebar-foreground: oklch(0.3 0.02 240);
+  --sidebar-primary: oklch(0.55 0.16 255);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.94 0.03 255);
+  --sidebar-accent-foreground: oklch(0.45 0.15 255);
+  --sidebar-border: oklch(0.92 0.01 240);
+  --sidebar-ring: oklch(0.55 0.16 255 / 0.25);
+
+  /* --- Motion: Premium Easing & Durations --- */
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 200ms;
+  --duration-normal: 450ms;
+  --duration-slow: 800ms;
+  --duration-reveal: 1200ms;
+}
+
+.dark {
+  /* Темная тема: Глубина без "грязи" */
+  --background: oklch(0.14 0.015 260); /* Глубокий темный, не черный */
+  --foreground: oklch(0.98 0.005 260);
+  
+  --card: oklch(0.16 0.018 260);
+  --card-foreground: oklch(0.98 0.005 260);
+  
+  --popover: oklch(0.16 0.018 260);
+  --popover-foreground: oklch(0.98 0.005 260);
+  
+  --primary: oklch(0.72 0.12 255);      /* Более яркий в темноте для контраста */
+  --primary-foreground: oklch(0.14 0.02 260);
+  
+  --secondary: oklch(0.22 0.025 260);
+  --secondary-foreground: oklch(0.9 0.03 260);
+  
+  --muted: oklch(0.2 0.018 260);
+  --muted-foreground: oklch(0.65 0.012 260);
+  
+  --accent: oklch(0.24 0.04 255);
+  --accent-foreground: oklch(0.85 0.08 255);
+  
+  --destructive: oklch(0.5 0.18 25);
+  --destructive-foreground: oklch(0.96 0.01 25.5);
+  
+  --border: oklch(0.24 0.02 260);
+  --input: oklch(0.24 0.02 260);
+  --ring: oklch(0.72 0.12 255 / 0.4);
+
+  /* Тени в темной теме — меньше размытие, больше глубина */
+  --shadow-soft: 0 4px 12px oklch(0 0 0 / 0.25);
+  --shadow-main: 0 12px 32px oklch(0 0 0 / 0.35);
+
+  /* Glassmorphism Dark */
+  --glass-bg: oklch(0.18 0.02 260 / 0.75);
+  --glass-border: oklch(1 0 0 / 0.08);
+  
+  --sidebar: oklch(0.12 0.02 260);
+  --sidebar-foreground: oklch(0.95 0.01 260);
+  --sidebar-primary: oklch(0.72 0.12 255);
+  --sidebar-primary-foreground: oklch(0.14 0.02 260);
+  --sidebar-accent: oklch(0.24 0.04 255);
+  --sidebar-accent-foreground: oklch(0.95 0.02 260);
+  --sidebar-border: oklch(0.24 0.02 260);
+  --sidebar-ring: oklch(0.72 0.12 255 / 0.4);
+}

@@ -1,0 +1,29 @@
+@layer components {
+  /* Базовая секция с прогрессивными отступами */
+  .section {
+    @apply py-20 md:py-32 lg:py-48 overflow-hidden;
+  }
+
+  /* Контейнер с увеличенными полями для десктопа */
+  .container-xl {
+    @apply mx-auto px-6 md:px-16 lg:px-24 max-w-[1440px];
+  }
+
+  /* Универсальные разделители с "воздухом" */
+  .stack-spacious {
+    @apply flex flex-col gap-12 md:gap-16 lg:gap-24;
+  }
+
+  .grid-spacious {
+    @apply grid gap-10 md:gap-16 lg:gap-20;
+  }
+  
+  /* Заголовки секций */
+  .section-header {
+    @apply max-w-3xl mb-16 md:mb-24;
+  }
+  
+  .section-header--centered {
+    @apply mx-auto text-center;
+  }
+}
