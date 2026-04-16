@@ -88,7 +88,7 @@ export function SessionForm({
     <form
       className="space-y-6"
       onSubmit={form.handleSubmit((_values, event) => {
-        const formElement = event?.currentTarget;
+        const formElement = event?.target as HTMLFormElement;
 
         if (!formElement) {
           return;

@@ -129,37 +129,38 @@ export async function getClientDashboardData(
 ) {
   return withPrismaReadRetry(
     async () => {
-      const membershipSnapshot = await getClientMembershipSnapshot(userId, now);
-
-      const nextBooking = await prisma.booking.findFirst({
-        where: {
-          userId,
-          status: "booked",
-          session: {
-            type: "group",
-            status: "scheduled",
-            startsAt: {
-              gte: now,
+      const [membershipSnapshot, nextBooking] = await Promise.all([
+        getClientMembershipSnapshot(userId, now),
+        prisma.booking.findFirst({
+          where: {
+            userId,
+            status: "booked",
+            session: {
+              type: "group",
+              status: "scheduled",
+              startsAt: {
+                gte: now,
+              },
             },
           },
-        },
-        orderBy: {
-          session: {
-            startsAt: "asc",
-          },
-        },
-        select: {
-          id: true,
-          sessionId: true,
-          session: {
-            select: {
-              title: true,
-              startsAt: true,
-              durationMinutes: true,
+          orderBy: {
+            session: {
+              startsAt: "asc",
             },
           },
-        },
-      });
+          select: {
+            id: true,
+            sessionId: true,
+            session: {
+              select: {
+                title: true,
+                startsAt: true,
+                durationMinutes: true,
+              },
+            },
+          },
+        }),
+      ]);
 
       return {
         activeMembership: membershipSnapshot.activeMembership,
@@ -171,6 +172,7 @@ export async function getClientDashboardData(
     "bookings.getClientDashboardData",
   );
 }
+
 
 export async function getClientScheduleData(
   userId: string,

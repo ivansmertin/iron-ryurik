@@ -243,3 +243,40 @@ export async function issueMembership(
 
   redirect(buildClientRedirect(clientId, "membership-issued"));
 }
+
+export async function purchaseMembershipClient(
+  planId: string,
+  prevState?: ActionState,
+): Promise<ActionState> {
+  void prevState;
+  const user = await requireUser("client");
+
+  const startedAt = Date.now();
+
+  try {
+    const { getMoscowDateInputValue } = await import("@/lib/datetime");
+    const moscowDateValue = getMoscowDateInputValue(new Date());
+
+    await prisma.$transaction((tx) =>
+      issueMembershipWithDb(tx, user.id, {
+        planId,
+        startsAt: moscowDateValue,
+        isPaid: false,
+      }),
+    );
+  } catch (error) {
+    logPrismaError("memberships.purchaseMembershipClient", error, startedAt);
+
+    return getActionError(
+      getDatabaseActionErrorMessage(
+        error,
+        "Не удалось оформить абонемент. Попробуйте ещё раз.",
+        {
+          preserveKnownErrorMessage: true,
+        },
+      ),
+    );
+  }
+
+  redirect("/client?toast=" + encodeURIComponent("membership-purchased"));
+}

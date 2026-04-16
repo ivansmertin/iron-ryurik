@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ClientOccupancyCard } from "@/features/gym-state/components/client-occupancy-card";
+import { getGymOccupancy } from "@/features/gym-state/service";
 import { PageHeader } from "@/components/admin/page-header";
 import { CancelBookingButton } from "@/features/bookings/components/cancel-booking-button";
 import { getClientDashboardData } from "@/features/bookings/queries";
@@ -51,11 +53,14 @@ export default async function ClientDashboard() {
   const user = await requireUser("client");
   const now = new Date();
 
-  let dashboardData: Awaited<ReturnType<typeof getClientDashboardData>> | null =
-    null;
+  let dashboardData: Awaited<ReturnType<typeof getClientDashboardData>> | null = null;
+  let gymOccupancy = 0;
 
   try {
-    dashboardData = await getClientDashboardData(user.id, now);
+    [dashboardData, gymOccupancy] = await Promise.all([
+      getClientDashboardData(user.id, now),
+      getGymOccupancy(),
+    ]);
   } catch (error) {
     console.error("[client-dashboard] failed to load dashboard", error);
   }
@@ -67,6 +72,8 @@ export default async function ClientDashboard() {
           title="Личный кабинет"
           description={`Сегодня ${formatMoscowDate(now)}. Здесь собраны абонемент и ближайшие записи.`}
         />
+        
+        <ClientOccupancyCard occupancy={gymOccupancy} />
 
         <Card>
           <CardHeader>
@@ -102,6 +109,8 @@ export default async function ClientDashboard() {
         description={`Сегодня ${formatMoscowDate(now)}. Здесь собраны абонемент и ближайшие записи.`}
       />
 
+      <ClientOccupancyCard occupancy={gymOccupancy} />
+
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
@@ -126,11 +135,17 @@ export default async function ClientDashboard() {
                 />
               </>
             ) : (
-              <p className="text-muted-foreground text-sm">
-                Нет активного абонемента. Обратитесь к администратору.
-              </p>
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-sm">
+                  Нет активного абонемента.
+                </p>
+                <Button nativeButton={false} render={<Link href="/client/memberships/buy" />} className="w-full">
+                  Купить абонемент
+                </Button>
+              </div>
             )}
           </CardContent>
+
         </Card>
 
         <Card>

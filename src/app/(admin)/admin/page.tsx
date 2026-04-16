@@ -1,4 +1,6 @@
 import { PageHeader } from "@/components/admin/page-header";
+import { AdminOccupancyCard } from "@/features/gym-state/components/admin-occupancy-card";
+import { getGymOccupancy } from "@/features/gym-state/service";
 import {
   Card,
   CardContent,
@@ -20,6 +22,13 @@ export default async function AdminDashboardPage() {
   await markPastSessionsCompleted().catch((error) => {
     console.error("[admin-dashboard] markPastSessionsCompleted failed", error);
   });
+
+  let gymOccupancy = 0;
+  try {
+    gymOccupancy = await getGymOccupancy();
+  } catch (error) {
+    console.error("[admin-dashboard] getGymOccupancy failed", error);
+  }
 
   let cards:
     | Array<{
@@ -94,6 +103,10 @@ export default async function AdminDashboardPage() {
         title="Панель администратора"
         description={formatMoscowDate(now)}
       />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <AdminOccupancyCard initialOccupancy={gymOccupancy} />
+      </div>
 
       {cards ? (
         <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">

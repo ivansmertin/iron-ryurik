@@ -128,7 +128,7 @@ export function IssueMembershipDialog({
           <form
             className="space-y-4"
             onSubmit={form.handleSubmit((_values, event) => {
-              const formElement = event?.currentTarget;
+              const formElement = event?.target as HTMLFormElement;
 
               if (!formElement) {
                 return;

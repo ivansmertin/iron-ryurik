@@ -1,14 +1,11 @@
 import { redirect } from "next/navigation";
 import { getRoleHomeRoute } from "@/features/auth/role";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
-import { createClient } from "@/lib/supabase/server";
+import { getCachedSupabaseUser } from "@/lib/supabase/cached-user";
 import { prisma } from "@/lib/prisma";
 
 export async function requireUser(requiredRole?: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const authUser = await getCachedSupabaseUser();
 
   if (!authUser) redirect("/login");
 

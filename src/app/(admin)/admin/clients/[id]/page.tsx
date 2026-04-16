@@ -60,9 +60,11 @@ export default async function ClientDetailsPage({
     notFound();
   }
 
-  const memberships = await getClientMemberships(id);
-  const bookingHistory = await getClientBookingHistory(id);
-  const activePlans = await getActiveMembershipPlans();
+  const [memberships, bookingHistory, activePlans] = await Promise.all([
+    getClientMemberships(id),
+    getClientBookingHistory(id),
+    getActiveMembershipPlans(),
+  ]);
 
   const sortedMemberships = [...memberships].sort((left, right) => {
     const leftIsCurrent = isMembershipCurrent(left.status, left.endsAt);

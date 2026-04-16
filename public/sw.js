@@ -1,8 +1,9 @@
-const STATIC_CACHE = "iron-rurik-static-v2";
-const RUNTIME_CACHE = "iron-rurik-runtime-v2";
+const STATIC_CACHE = "iron-rurik-static-v3";
+const NAV_CACHE = "iron-rurik-nav-v3";
 const OFFLINE_URL = "/offline.html";
 
-const STATIC_ASSETS = [OFFLINE_URL, "/manifest.webmanifest", "/vercel.svg", "/file.svg"];
+// Assets with content-hashed URLs — safe to cache forever.
+const STATIC_ASSETS = [OFFLINE_URL, "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -16,7 +17,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== STATIC_CACHE && key !== RUNTIME_CACHE)
+          .filter((key) => key !== STATIC_CACHE && key !== NAV_CACHE)
           .map((key) => caches.delete(key)),
       ),
     ),
@@ -32,8 +33,10 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
-  const isStaticAsset =
-    url.pathname.startsWith("/_next/static/") ||
+
+  // ── 1. Next.js static chunks — Cache First (content-hashed, immutable) ──
+  const isNextStatic = url.pathname.startsWith("/_next/static/");
+  const isStaticFile =
     url.pathname.endsWith(".svg") ||
     url.pathname.endsWith(".png") ||
     url.pathname.endsWith(".jpg") ||
@@ -42,16 +45,15 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".woff2") ||
     url.pathname === "/manifest.webmanifest";
 
-  if (isStaticAsset) {
+  if (isNextStatic || isStaticFile) {
     event.respondWith(
       caches.match(request).then((cached) => {
-        if (cached) {
-          return cached;
-        }
-
+        if (cached) return cached;
         return fetch(request).then((response) => {
-          const responseClone = response.clone();
-          caches.open(STATIC_CACHE).then((cache) => cache.put(request, responseClone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+          }
           return response;
         });
       }),
@@ -59,25 +61,46 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // ── 2. Navigation requests — Stale-While-Revalidate ──
+  // Serve cached page shell immediately, refresh in background.
+  // This makes repeat opens feel instant on iPhone.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      caches.open(NAV_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+
+        const networkFetch = fetch(request)
+          .then((response) => {
+            if (response.ok) {
+              cache.put(request, response.clone());
+            }
+            return response;
+          })
+          .catch(async () => {
+            // Offline fallback
+            return cached ?? caches.match(OFFLINE_URL);
+          });
+
+        // Return cached immediately if available, otherwise wait for network.
+        return cached ?? networkFetch;
+      }),
+    );
+    return;
+  }
+
+  // ── 3. Everything else — Network First with cache fallback ──
   event.respondWith(
     fetch(request)
       .then((response) => {
         if (response.ok) {
-          const responseClone = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseClone));
+          const clone = response.clone();
+          caches.open(NAV_CACHE).then((cache) => cache.put(request, clone));
         }
         return response;
       })
       .catch(async () => {
         const cached = await caches.match(request);
-        if (cached) {
-          return cached;
-        }
-
-        if (request.mode === "navigate") {
-          return caches.match(OFFLINE_URL);
-        }
-
+        if (cached) return cached;
         return new Response("Offline", { status: 503, statusText: "Offline" });
       }),
   );

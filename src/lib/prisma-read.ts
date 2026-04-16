@@ -2,11 +2,10 @@ import {
   isTransientPrismaConnectionError,
   logPrismaError,
 } from "@/lib/prisma-errors";
-import { reconnectPrismaClient } from "@/lib/prisma";
 
 export async function withPrismaReadRetry<T>(
   operation: () => Promise<T>,
-  retries = 1,
+  retries = 2,
   context = "prisma.read",
 ): Promise<T> {
   const startedAt = Date.now();
@@ -22,9 +21,8 @@ export async function withPrismaReadRetry<T>(
       }
 
       attempt += 1;
-      await reconnectPrismaClient().catch((reconnectError) => {
-        console.error("[prisma.read] failed to reconnect after transient error", reconnectError);
-      });
+      // When using pg.Pool via driver adapters, we do not want to call prisma.$disconnect()
+      // because pool.end() destroys the pool permanently. The pg.Pool natively recreates dropped connections.
       await new Promise((resolve) => setTimeout(resolve, 150));
     }
   }
