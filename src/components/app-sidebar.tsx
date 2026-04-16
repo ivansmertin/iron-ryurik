@@ -91,7 +91,7 @@ export function MobileBottomNav({ links }: { links: NavLink[] }) {
   const activeHref = useActiveHref(links);
 
   return (
-    <nav className="bg-background/95 fixed inset-x-0 bottom-0 z-50 border-t border-border/70 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
+    <nav className="bg-background/95 fixed bottom-0 left-0 w-full z-50 border-t border-border/70 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-stretch justify-around">
         {links.map((link) => {
           const Icon = iconMap[link.icon];

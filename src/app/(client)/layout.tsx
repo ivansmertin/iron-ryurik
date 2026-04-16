@@ -12,7 +12,7 @@ export default async function ClientLayout({
   const user = await requireUser("client");
 
   return (
-    <div className="flex h-dvh flex-col md:flex-row">
+    <div className="flex min-h-[100dvh] flex-col md:flex-row">
       <AppSidebar links={clientLinks} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="bg-background/80 flex h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] shrink-0 items-center justify-between border-b border-border/70 px-4 backdrop-blur md:justify-end">
@@ -24,7 +24,7 @@ export default async function ClientLayout({
             <UserMenu fullName={user.fullName} email={user.email} />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
           {children}
         </main>
       </div>
