@@ -19,10 +19,13 @@ export const env = createEnv({
     GMAIL_USER: z.string().email().optional(),
     GMAIL_APP_PASSWORD: z.string().min(1).optional(),
     BREVO_API_KEY: z.string().optional(),
+    VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+    VAPID_SUBJECT: z.string().min(1).optional(),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().min(1).optional(),
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -33,8 +36,11 @@ export const env = createEnv({
     GMAIL_USER: process.env.GMAIL_USER,
     GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD,
     BREVO_API_KEY: process.env.BREVO_API_KEY,
+    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT: process.env.VAPID_SUBJECT,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 });

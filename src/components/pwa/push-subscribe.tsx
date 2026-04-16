@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import { savePushSubscription, removePushSubscription } from "@/actions/push";
+import { env } from "@/lib/env";
 import { toast } from "sonner";
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -58,7 +59,7 @@ export function PushSubscribeToggle() {
         return;
       }
 
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const vapidPublicKey = env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
         throw new Error("VAPID public key is not defined in env variables");
       }
@@ -79,7 +80,7 @@ export function PushSubscribeToggle() {
         setIsSubscribed(true);
         toast.success("Push уведомления успешно включены!");
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to subscribe the user: ", error);
       toast.error("Не удалось подписаться на уведомления");
     } finally {

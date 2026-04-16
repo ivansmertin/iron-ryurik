@@ -70,7 +70,7 @@ export default async function ClientDashboard() {
       <div className="space-y-6">
         <PageHeader
           title="Личный кабинет"
-          description={`Сегодня ${formatMoscowDate(now)}. Здесь собраны абонемент и ближайшие записи.`}
+          description={`Сегодня ${formatMoscowDate(now)} — здесь собраны абонемент и ближайшие записи.`}
         />
         
         <ClientOccupancyCard occupancy={gymOccupancy} />
@@ -95,7 +95,7 @@ export default async function ClientDashboard() {
     <div className="space-y-6">
       <PageHeader
         title="Личный кабинет"
-        description={`Сегодня ${formatMoscowDate(now)}. Здесь собраны абонемент и ближайшие записи.`}
+        description={`Сегодня ${formatMoscowDate(now)} — здесь собраны абонемент и ближайшие записи.`}
       />
 
       <ClientOccupancyCard occupancy={gymOccupancy} />
@@ -129,7 +129,7 @@ export default async function ClientDashboard() {
                   Нет активного абонемента.
                 </p>
                 <Button nativeButton={false} render={<Link href="/client/memberships/buy" />} className="w-full">
-                  Купить абонемент
+                  Оформить абонемент
                 </Button>
               </div>
             )}

@@ -124,6 +124,9 @@ export async function listClients({
             memberships: {
               where: {
                 status: "active",
+                startsAt: {
+                  lte: now,
+                },
                 endsAt: {
                   gte: now,
                 },

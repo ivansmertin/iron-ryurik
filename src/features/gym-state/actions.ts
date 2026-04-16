@@ -4,30 +4,32 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/features/auth/get-user";
 import { updateGymOccupancy } from "./service";
 
+type OccupancyActionResult = { value: number } | { error: string };
+
 export async function setExactOccupancyAction(
   value: number
-): Promise<{ error?: string }> {
+): Promise<OccupancyActionResult> {
   try {
     await requireUser("admin");
-    await updateGymOccupancy({ exactValue: value });
+    const updatedValue = await updateGymOccupancy({ exactValue: value });
     revalidatePath("/admin", "layout");
     revalidatePath("/client", "layout");
-    return {};
-  } catch (error) {
+    return { value: updatedValue };
+  } catch {
     return { error: "Не удалось обновить значение. Попробуйте еще раз." };
   }
 }
 
 export async function changeOccupancyAction(
   delta: number
-): Promise<{ error?: string }> {
+): Promise<OccupancyActionResult> {
   try {
     await requireUser("admin");
-    await updateGymOccupancy({ delta });
+    const updatedValue = await updateGymOccupancy({ delta });
     revalidatePath("/admin", "layout");
     revalidatePath("/client", "layout");
-    return {};
-  } catch (error) {
+    return { value: updatedValue };
+  } catch {
     return { error: "Не удалось обновить значение. Попробуйте еще раз." };
   }
 }

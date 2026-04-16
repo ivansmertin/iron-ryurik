@@ -94,6 +94,9 @@ export async function getClientMembershipSnapshot(
     where: {
       userId,
       status: "active",
+      startsAt: {
+        lte: now,
+      },
       endsAt: {
         gte: now,
       },
@@ -187,6 +190,9 @@ export async function getClientScheduleData(
         where: {
           userId,
           status: "active",
+          startsAt: {
+            lte: now,
+          },
           endsAt: {
             gte: now,
           },

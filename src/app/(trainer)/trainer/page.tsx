@@ -83,7 +83,7 @@ export default async function TrainerDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Панель тренера"
-        description={`Сегодня ${formatMoscowDate(now)}. Здесь собраны личные слоты, клиенты и заметки.`}
+        description={`Сегодня ${formatMoscowDate(now)} — здесь собраны личные слоты, клиенты и заметки.`}
         actions={
           <>
             <Button nativeButton={false} render={<Link href="/trainer/slots/new" />}>

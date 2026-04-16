@@ -42,6 +42,10 @@ function resolveToastMessage(toastKey: string) {
       type: "success",
       message: "Абонемент выдан клиенту.",
     },
+    "membership-purchased": {
+      type: "success",
+      message: "Заявка на абонемент оформлена. Оплату подтвердит администратор или зал.",
+    },
     "notes-updated": {
       type: "success",
       message: "Заметки сохранены.",

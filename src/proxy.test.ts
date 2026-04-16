@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createMiddlewareClientMock = vi.hoisted(() => vi.fn());
-const getCanonicalRoleForUserIdMock = vi.hoisted(() => vi.fn());
-const getCanonicalRoleWithFallbackMock = vi.hoisted(() => vi.fn());
+const getRoleHomeRouteMock = vi.hoisted(() =>
+  vi.fn((role?: string) => (role ? `/${role}` : "/client")),
+);
 const responseMock = vi.hoisted(() => vi.fn(() => "ok"));
 const redirectMock = vi.hoisted(() => vi.fn((url: URL) => `redirect:${url.pathname}`));
 
@@ -11,9 +12,7 @@ vi.mock("@/lib/supabase/middleware-client", () => ({
 }));
 
 vi.mock("@/features/auth/role", () => ({
-  getCanonicalRoleForUserId: getCanonicalRoleForUserIdMock,
-  getCanonicalRoleWithFallback: getCanonicalRoleWithFallbackMock,
-  getRoleHomeRoute: vi.fn((role: string) => `/${role}`),
+  getRoleHomeRoute: getRoleHomeRouteMock,
 }));
 
 vi.mock("next/server", () => ({
@@ -24,6 +23,13 @@ vi.mock("next/server", () => ({
 
 import { proxy } from "@/proxy";
 
+type MiddlewareUser = {
+  id: string;
+  user_metadata?: {
+    role?: string;
+  };
+} | null;
+
 function createRequest(pathname: string) {
   return {
     nextUrl: {
@@ -33,70 +39,72 @@ function createRequest(pathname: string) {
   } as never;
 }
 
-describe("proxy role consistency", () => {
+function mockMiddlewareUser(user: MiddlewareUser) {
+  const getUser = vi.fn().mockResolvedValue({
+    data: {
+      user,
+    },
+  });
+
+  createMiddlewareClientMock.mockReturnValue({
+    supabase: {
+      auth: {
+        getUser,
+      },
+    },
+    response: responseMock,
+  });
+
+  return getUser;
+}
+
+describe("proxy auth routing", () => {
   beforeEach(() => {
     createMiddlewareClientMock.mockReset();
-    getCanonicalRoleForUserIdMock.mockReset();
-    getCanonicalRoleWithFallbackMock.mockReset();
+    getRoleHomeRouteMock.mockClear();
     responseMock.mockReset();
     redirectMock.mockReset();
     responseMock.mockReturnValue("ok");
   });
 
-  it("редиректит с auth-страниц по канонической роли из базы", async () => {
-    createMiddlewareClientMock.mockReturnValue({
-      supabase: {
-        auth: {
-          getUser: vi.fn().mockResolvedValue({
-            data: {
-              user: { id: "user-1", user_metadata: { role: "trainer" } },
-            },
-          }),
-        },
+  it("refreshes Supabase user and redirects authenticated auth page by metadata role", async () => {
+    const getUser = mockMiddlewareUser({
+      id: "user-1",
+      user_metadata: {
+        role: "trainer",
       },
-      response: responseMock,
     });
-    getCanonicalRoleWithFallbackMock.mockResolvedValue("admin");
 
-    await expect(proxy(createRequest("/login"))).resolves.toBe("redirect:/admin");
-    expect(getCanonicalRoleWithFallbackMock).toHaveBeenCalledWith(
-      "user-1",
-      "trainer",
-    );
+    await expect(proxy(createRequest("/login"))).resolves.toBe("redirect:/trainer");
+
+    expect(getUser).toHaveBeenCalled();
+    expect(getRoleHomeRouteMock).toHaveBeenCalledWith("trainer");
   });
 
-  it("редиректит на канонический раздел при несовпадении приватного префикса", async () => {
-    createMiddlewareClientMock.mockReturnValue({
-      supabase: {
-        auth: {
-          getUser: vi.fn().mockResolvedValue({
-            data: { user: { id: "user-2", user_metadata: { role: "admin" } } },
-          }),
-        },
-      },
-      response: responseMock,
-    });
-    getCanonicalRoleForUserIdMock.mockResolvedValue("client");
+  it("redirects anonymous private routes to login", async () => {
+    mockMiddlewareUser(null);
 
-    await expect(proxy(createRequest("/trainer/slots"))).resolves.toBe(
-      "redirect:/client",
-    );
+    await expect(proxy(createRequest("/admin"))).resolves.toBe("redirect:/login");
+    expect(responseMock).not.toHaveBeenCalled();
   });
 
-  it("пускает в private route при совпадающей канонической роли", async () => {
-    createMiddlewareClientMock.mockReturnValue({
-      supabase: {
-        auth: {
-          getUser: vi.fn().mockResolvedValue({
-            data: { user: { id: "user-3", user_metadata: { role: "client" } } },
-          }),
-        },
+  it("allows authenticated private routes and leaves role enforcement to layouts", async () => {
+    mockMiddlewareUser({
+      id: "user-2",
+      user_metadata: {
+        role: "client",
       },
-      response: responseMock,
     });
-    getCanonicalRoleForUserIdMock.mockResolvedValue("client");
 
-    await expect(proxy(createRequest("/client/schedule"))).resolves.toBe("ok");
+    await expect(proxy(createRequest("/trainer/slots"))).resolves.toBe("ok");
+    expect(responseMock).toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("allows anonymous public routes", async () => {
+    mockMiddlewareUser(null);
+
+    await expect(proxy(createRequest("/"))).resolves.toBe("ok");
     expect(responseMock).toHaveBeenCalled();
   });
 });

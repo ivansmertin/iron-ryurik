@@ -3,7 +3,68 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
-export async function savePushSubscription(subscriptionParam: any, userAgent: string) {
+type PushSubscriptionPayload = {
+  endpoint: string;
+  keys?: {
+    p256dh?: string;
+    auth?: string;
+  };
+};
+
+type ValidPushSubscriptionPayload = {
+  endpoint: PushSubscriptionPayload["endpoint"];
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function validatePushSubscriptionPayload(
+  payload: unknown,
+): ValidPushSubscriptionPayload | { error: string } {
+  if (!isRecord(payload)) {
+    return { error: "Неверный формат подписки: ожидается объект." };
+  }
+
+  const endpoint = payload.endpoint;
+  const keys = payload.keys;
+
+  if (typeof endpoint !== "string" || endpoint.trim() === "") {
+    return { error: "Неверный формат подписки: отсутствует endpoint." };
+  }
+
+  if (!isRecord(keys)) {
+    return { error: "Неверный формат подписки: отсутствуют ключи." };
+  }
+
+  const p256dh = keys.p256dh;
+  const auth = keys.auth;
+
+  if (typeof p256dh !== "string" || p256dh.trim() === "") {
+    return { error: "Неверный формат подписки: отсутствует ключ p256dh." };
+  }
+
+  if (typeof auth !== "string" || auth.trim() === "") {
+    return { error: "Неверный формат подписки: отсутствует ключ auth." };
+  }
+
+  return {
+    endpoint,
+    keys: {
+      p256dh,
+      auth,
+    },
+  };
+}
+
+export async function savePushSubscription(
+  subscriptionParam: unknown,
+  userAgent: string,
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -13,13 +74,14 @@ export async function savePushSubscription(subscriptionParam: any, userAgent: st
     return { error: "Необходима авторизация" };
   }
 
-  const endpoint = subscriptionParam.endpoint;
-  const p256dh = subscriptionParam.keys?.p256dh;
-  const auth = subscriptionParam.keys?.auth;
+  const parsed = validatePushSubscriptionPayload(subscriptionParam);
 
-  if (!endpoint || !p256dh || !auth) {
-    return { error: "Неверный формат подписки" };
+  if ("error" in parsed) {
+    return parsed;
   }
+
+  const endpoint = parsed.endpoint;
+  const { p256dh, auth } = parsed.keys;
 
   try {
     await prisma.deviceSubscription.upsert({
@@ -44,8 +106,11 @@ export async function removePushSubscription(endpoint: string) {
     return { error: "Необходима авторизация" };
   }
 
+  if (!endpoint.trim()) {
+    return { error: "Неверный endpoint подписки" };
+  }
+
   try {
-    // Удаляем из базы только если подписка принадлежит текущему пользователю
     await prisma.deviceSubscription.deleteMany({
       where: { endpoint, userId: user.id },
     });

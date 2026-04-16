@@ -26,6 +26,14 @@ const AddToHomeIcon = () => (
   </svg>
 );
 
+type NavigatorWithStandalone = Navigator & {
+  standalone?: boolean;
+};
+
+type WindowWithMSStream = Window & {
+  MSStream?: unknown;
+};
+
 export function IosInstallPrompt() {
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -34,11 +42,11 @@ export function IosInstallPrompt() {
     // Check if the device is iOS
     const isIOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-      !(window as any).MSStream;
+      !(window as WindowWithMSStream).MSStream;
     
     // Check if the app is already running in standalone mode (PWA)
     const isStandalone =
-      (window.navigator as any).standalone ||
+      (window.navigator as NavigatorWithStandalone).standalone === true ||
       window.matchMedia("(display-mode: standalone)").matches;
 
     // Check if the user has already dismissed the prompt

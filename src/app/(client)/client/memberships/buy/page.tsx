@@ -28,8 +28,8 @@ export default async function ClientBuyMembershipPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Купить абонемент"
-        description="Выберите подходящий абонемент из списка ниже."
+        title="Оформить абонемент"
+        description="Выберите абонемент и отправьте заявку. Мы создадим неоплаченный абонемент, а оплату подтвердит администратор или зал."
       />
 
       {hasActiveMembership && (
@@ -47,7 +47,7 @@ export default async function ClientBuyMembershipPage() {
         {plans.length === 0 ? (
           <div className="col-span-full">
             <p className="text-muted-foreground text-sm">
-              В данный момент нет доступных абонементов для покупки.
+              В данный момент нет доступных абонементов для оформления заявки.
             </p>
           </div>
         ) : (
@@ -66,6 +66,9 @@ export default async function ClientBuyMembershipPage() {
                   </p>
                   <p className="text-muted-foreground text-sm">
                     {plan.price.toString()} ₽
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    Оплата подтверждается администратором или в зале.
                   </p>
                 </div>
                 <PurchaseMembershipButton

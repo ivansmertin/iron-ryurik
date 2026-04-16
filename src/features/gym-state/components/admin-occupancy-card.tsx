@@ -9,27 +9,32 @@ import { changeOccupancyAction, setExactOccupancyAction } from "../actions";
 
 export function AdminOccupancyCard({ initialOccupancy }: { initialOccupancy: number }) {
   const [isPending, startTransition] = useTransition();
+  const [occupancy, setOccupancy] = useState(initialOccupancy);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(initialOccupancy));
 
   const handleIncrement = () => {
     startTransition(async () => {
       const result = await changeOccupancyAction(1);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
+        setOccupancy(result.value);
+        setEditValue(String(result.value));
         toast.success("Количество людей обновлено");
       }
     });
   };
 
   const handleDecrement = () => {
-    if (initialOccupancy <= 0) return;
+    if (occupancy <= 0) return;
     startTransition(async () => {
       const result = await changeOccupancyAction(-1);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
+        setOccupancy(result.value);
+        setEditValue(String(result.value));
         toast.success("Количество людей обновлено");
       }
     });
@@ -43,9 +48,11 @@ export function AdminOccupancyCard({ initialOccupancy }: { initialOccupancy: num
     }
     startTransition(async () => {
       const result = await setExactOccupancyAction(val);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
+        setOccupancy(result.value);
+        setEditValue(String(result.value));
         toast.success("Новое значение сохранено");
         setIsEditing(false);
       }
@@ -63,14 +70,14 @@ export function AdminOccupancyCard({ initialOccupancy }: { initialOccupancy: num
             className="h-6 w-6" 
             onClick={() => {
               setIsEditing(!isEditing);
-              setEditValue(String(initialOccupancy));
+              setEditValue(String(occupancy));
             }}
           >
             <Settings2 className="h-4 w-4" />
           </Button>
         </CardDescription>
         <CardTitle className="flex items-center text-3xl font-semibold tracking-tight">
-          {initialOccupancy}
+          {occupancy}
         </CardTitle>
       </CardHeader>
       
@@ -85,7 +92,7 @@ export function AdminOccupancyCard({ initialOccupancy }: { initialOccupancy: num
               min={0}
             />
             <Button size="sm" onClick={handleSaveExact} disabled={isPending}>
-              {isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Save"}
+              {isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Сохранить"}
             </Button>
           </div>
         ) : (
@@ -101,7 +108,7 @@ export function AdminOccupancyCard({ initialOccupancy }: { initialOccupancy: num
               variant="outline" 
               className="flex-1" 
               onClick={handleDecrement}
-              disabled={isPending || initialOccupancy <= 0}
+              disabled={isPending || occupancy <= 0}
             >
               <Minus className="mr-2 h-4 w-4" />
               -1 

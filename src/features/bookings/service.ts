@@ -146,6 +146,7 @@ async function lockMembershipForBooking(
     FROM "Membership"
     WHERE "userId" = ${userId}
       AND status = 'active'
+      AND "startsAt" <= NOW()
       AND "endsAt" >= NOW()
       AND "visitsRemaining" > 0
     ORDER BY "endsAt" ASC
