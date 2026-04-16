@@ -12,6 +12,7 @@ import {
   Clock,
   Users,
   CreditCard,
+  Dumbbell,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Logo } from "@/components/logo";
@@ -30,6 +31,7 @@ const iconMap: Record<IconName, LucideIcon> = {
   clock: Clock,
   users: Users,
   "credit-card": CreditCard,
+  dumbbell: Dumbbell,
 };
 
 function useActiveHref(links: NavLink[]) {
