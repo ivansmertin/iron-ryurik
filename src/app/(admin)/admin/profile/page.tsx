@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/admin/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/features/auth/get-user";
+import { PushSubscribeToggle } from "@/components/pwa/push-subscribe";
 
 export default async function AdminProfilePage() {
   const user = await requireUser("admin");
@@ -25,6 +26,16 @@ export default async function AdminProfilePage() {
             <p className="text-muted-foreground">Email</p>
             <p className="font-medium">{user.email}</p>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Уведомления</CardTitle>
+          <CardDescription>Управление Push-уведомлениями</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PushSubscribeToggle />
         </CardContent>
       </Card>
     </div>
