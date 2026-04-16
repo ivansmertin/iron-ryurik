@@ -39,13 +39,14 @@ export function UserMenu({
           {fullName}
         </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64 rounded-xl">
-        <div className="px-2 py-1.5">
-          <p className="text-sm font-medium">{fullName}</p>
-          <p className="text-muted-foreground text-xs">{email}</p>
+      <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl">
+        <div className="flex flex-col gap-1 px-2 py-1.5">
+          <p className="text-sm font-medium leading-none">{fullName}</p>
+          <p className="text-xs text-muted-foreground leading-none">{email}</p>
         </div>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator className="my-1" />
         <DropdownMenuItem
+          className="cursor-pointer py-1.5 text-sm"
           onClick={() => startTransition(() => signOut())}
         >
           Выйти
