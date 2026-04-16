@@ -85,17 +85,6 @@ export default async function ClientDashboard() {
           </CardHeader>
         </Card>
 
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" nativeButton={false} render={<Link href="/client/schedule" />}>
-            Расписание
-          </Button>
-          <Button variant="outline" nativeButton={false} render={<Link href="/client/bookings" />}>
-            Мои записи
-          </Button>
-          <Button variant="outline" nativeButton={false} render={<Link href="/client/profile" />}>
-            Профиль
-          </Button>
-        </div>
       </div>
     );
   }
@@ -187,17 +176,7 @@ export default async function ClientDashboard() {
         </Card>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Button variant="outline" nativeButton={false} render={<Link href="/client/schedule" />}>
-          Расписание
-        </Button>
-        <Button variant="outline" nativeButton={false} render={<Link href="/client/bookings" />}>
-          Мои записи
-        </Button>
-        <Button variant="outline" nativeButton={false} render={<Link href="/client/profile" />}>
-          Профиль
-        </Button>
-      </div>
+
     </div>
   );
 }
