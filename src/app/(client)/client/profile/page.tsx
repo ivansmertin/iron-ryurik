@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireUser } from "@/features/auth/get-user";
 import { ClientProfileForm } from "@/features/clients/components/client-profile-form";
 import { formatMoscowDate, formatSport } from "@/lib/formatters";
+import { PushSubscribeToggle } from "@/components/pwa/push-subscribe";
 
 export default async function ClientProfilePage() {
   const user = await requireUser("client");
@@ -56,6 +57,16 @@ export default async function ClientProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Уведомления</CardTitle>
+          <CardDescription>Управление Push-уведомлениями</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PushSubscribeToggle />
+        </CardContent>
+      </Card>
     </div>
   );
 }
