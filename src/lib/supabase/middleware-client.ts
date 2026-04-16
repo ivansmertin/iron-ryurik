@@ -13,7 +13,9 @@ export function createMiddlewareClient(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: { fetch: nodeTransportFetch },
+      global: {
+        fetch: process.env.VERCEL ? undefined : nodeTransportFetch,
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll();

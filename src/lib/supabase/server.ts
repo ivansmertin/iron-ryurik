@@ -13,7 +13,7 @@ export async function createClient() {
       global: {
         // Bypass Next.js patched fetch for outbound Supabase requests.
         // See CLAUDE.md → "Supabase server client" for context.
-        fetch: nodeTransportFetch,
+        fetch: process.env.VERCEL ? undefined : nodeTransportFetch,
       },
       cookies: {
         getAll() {
