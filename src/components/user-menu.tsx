@@ -39,7 +39,11 @@ export function UserMenu({
           {fullName}
         </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="w-56 max-w-[calc(100vw-2rem)] rounded-xl p-1.5"
+      >
         <div className="flex flex-col gap-1 px-2 py-1.5">
           <p className="text-sm font-medium leading-none">{fullName}</p>
           <p className="text-xs text-muted-foreground leading-none">{email}</p>

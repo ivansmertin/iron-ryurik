@@ -1,9 +1,4 @@
--- Этот скрипт был применен к Supabase напрямую (pg_cron).
--- Он сохранен здесь для истории и документации бизнес-логики.
-
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-
-CREATE OR REPLACE FUNCTION process_gym_cron_jobs()
+CREATE OR REPLACE FUNCTION public.process_gym_cron_jobs()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -28,8 +23,3 @@ BEGIN
       AND ("endsAt" < NOW() OR "visitsRemaining" <= 0);
 END;
 $$;
-
-SELECT cron.unschedule('gym_status_updater') 
-WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'gym_status_updater');
-
-SELECT cron.schedule('gym_status_updater', '*/15 * * * *', 'SELECT process_gym_cron_jobs();');

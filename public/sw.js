@@ -1,9 +1,16 @@
-const STATIC_CACHE = "iron-rurik-static-v3";
-const NAV_CACHE = "iron-rurik-nav-v3";
+const STATIC_CACHE = "iron-rurik-static-v4";
+const NAV_CACHE = "iron-rurik-nav-v4";
 const OFFLINE_URL = "/offline.html";
+const PRIVATE_NAV_PREFIXES = ["/client", "/trainer", "/admin"];
 
 // Assets with content-hashed URLs — safe to cache forever.
 const STATIC_ASSETS = [OFFLINE_URL, "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+
+function isPrivateNavigation(pathname) {
+  return PRIVATE_NAV_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -61,10 +68,21 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 2. Navigation requests — Stale-While-Revalidate ──
-  // Serve cached page shell immediately, refresh in background.
-  // This makes repeat opens feel instant on iPhone.
+  // ── 2. Navigation requests ──
   if (request.mode === "navigate") {
+    if (isPrivateNavigation(url.pathname)) {
+      event.respondWith(
+        fetch(request).catch(async () => {
+          return (
+            (await caches.match(OFFLINE_URL)) ??
+            new Response("Offline", { status: 503, statusText: "Offline" })
+          );
+        }),
+      );
+      return;
+    }
+
+    // Public pages can use Stale-While-Revalidate.
     event.respondWith(
       caches.open(NAV_CACHE).then(async (cache) => {
         const cached = await cache.match(request);

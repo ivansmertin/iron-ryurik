@@ -1,11 +1,12 @@
 import webpush from "web-push";
+import { env } from "@/lib/env";
 
 // Инициализация web-push ключами из окружения.
-if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT) {
+if (env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.VAPID_SUBJECT) {
   webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
+    env.VAPID_SUBJECT,
+    env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    env.VAPID_PRIVATE_KEY
   );
 } else {
   console.warn("web-push: VAPID ключи не сконфигурированы. Push уведомления не будут работать.");
@@ -17,6 +18,10 @@ type PushPayload = {
   data?: { url?: string };
 };
 
+function isWebPushError(error: unknown): error is Error & { statusCode?: number } {
+  return error instanceof Error;
+}
+
 /**
  * Отправляет Push-уведомление конкретному устройству.
  */
@@ -24,12 +29,15 @@ export async function sendNotificationToDevice(subscription: webpush.PushSubscri
   try {
     await webpush.sendNotification(subscription, JSON.stringify(payload));
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error sending push notification", error);
-    if (error.statusCode === 410) {
+    if (isWebPushError(error) && error.statusCode === 410) {
       // 410 Gone означает, что подписка больше не валидна (пользователь отозвал права)
       return { success: false, error: "GONE" };
     }
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      error: isWebPushError(error) ? error.message : "Unknown push error",
+    };
   }
 }

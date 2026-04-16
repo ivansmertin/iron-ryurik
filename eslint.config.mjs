@@ -11,6 +11,9 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "iron-ryurik-git/**",
+    "iron-ryurik-main/**",
+    "iron-ryurik-*/**",
     "next-env.d.ts",
   ]),
 ]);

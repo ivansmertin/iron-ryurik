@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Users } from "lucide-react";
 
 export function ClientOccupancyCard({ occupancy }: { occupancy: number }) {

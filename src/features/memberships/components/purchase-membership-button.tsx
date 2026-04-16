@@ -26,7 +26,7 @@ export function PurchaseMembershipButton({
   return (
     <form action={formAction} className="w-full">
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Оформляем..." : `Купить за ${price} ₽`}
+        {pending ? "Оформляем заявку..." : `Оформить заявку за ${price} ₽`}
       </Button>
     </form>
   );

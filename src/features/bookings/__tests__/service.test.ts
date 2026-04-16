@@ -54,6 +54,28 @@ function createBookingDb({
   return db;
 }
 
+function getRawSqlText(query: unknown) {
+  if (
+    query &&
+    typeof query === "object" &&
+    "strings" in query &&
+    Array.isArray((query as { strings: unknown }).strings)
+  ) {
+    return (query as { strings: string[] }).strings.join("");
+  }
+
+  if (
+    query &&
+    typeof query === "object" &&
+    "sql" in query &&
+    typeof (query as { sql: unknown }).sql === "string"
+  ) {
+    return (query as { sql: string }).sql;
+  }
+
+  return String(query);
+}
+
 describe("bookSessionForUser", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -147,6 +169,28 @@ describe("bookSessionForUser", () => {
     await expect(
       bookSessionForUser(db as never, "user-1", "session-1", now),
     ).rejects.toMatchObject({ code: "NO_ACTIVE_MEMBERSHIP" });
+  });
+
+  it("не даёт бронировать по абонементу, который ещё не начался", async () => {
+    const db = createBookingDb({
+      sessionRow: {
+        id: "session-1",
+        title: "Интервалы",
+        startsAt: new Date("2026-04-14T15:00:00.000Z"),
+        durationMinutes: 60,
+        capacity: 8,
+        status: "scheduled",
+        type: "group",
+      },
+      membershipRow: undefined,
+    });
+
+    await expect(
+      bookSessionForUser(db as never, "user-1", "session-1", now),
+    ).rejects.toMatchObject({ code: "NO_ACTIVE_MEMBERSHIP" });
+
+    const membershipQuery = db.$queryRaw.mock.calls[1]?.[0];
+    expect(getRawSqlText(membershipQuery)).toContain('"startsAt" <= NOW()');
   });
 
   it("возвращает ALREADY_BOOKED, если запись уже активна", async () => {

@@ -42,8 +42,10 @@ type ClientDetailsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function isMembershipCurrent(status: string, endsAt: Date) {
-  return status === "active" && endsAt >= new Date();
+function isMembershipCurrent(status: string, startsAt: Date, endsAt: Date) {
+  const now = new Date();
+
+  return status === "active" && startsAt <= now && endsAt >= now;
 }
 
 export default async function ClientDetailsPage({
@@ -67,8 +69,16 @@ export default async function ClientDetailsPage({
   ]);
 
   const sortedMemberships = [...memberships].sort((left, right) => {
-    const leftIsCurrent = isMembershipCurrent(left.status, left.endsAt);
-    const rightIsCurrent = isMembershipCurrent(right.status, right.endsAt);
+    const leftIsCurrent = isMembershipCurrent(
+      left.status,
+      left.startsAt,
+      left.endsAt,
+    );
+    const rightIsCurrent = isMembershipCurrent(
+      right.status,
+      right.startsAt,
+      right.endsAt,
+    );
 
     if (leftIsCurrent !== rightIsCurrent) {
       return Number(rightIsCurrent) - Number(leftIsCurrent);
