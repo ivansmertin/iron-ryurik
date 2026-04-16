@@ -58,3 +58,4 @@ export const exerciseCatalogSchema = z.object({
 
 export type WorkoutLogFormValues = z.input<typeof workoutLogSchema>;
 export type ExerciseCatalogFormValues = z.input<typeof exerciseCatalogSchema>;
+export const exerciseSchema = exerciseCatalogSchema;

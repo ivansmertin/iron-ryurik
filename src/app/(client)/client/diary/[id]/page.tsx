@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireUser } from "@/features/auth/get-user";
 import { updateClientWorkoutLog } from "@/features/workouts/actions";
 import { WorkoutLogForm } from "@/features/workouts/components/workout-log-form";
-import { getClientWorkoutLogById, listExercises } from "@/features/workouts/queries";
+import { getClientWorkoutLogById, getExercises } from "@/features/workouts/queries";
 import { getMoscowDateInputValue, getMoscowTimeInputValue } from "@/lib/datetime";
 import { formatMoscowDateTime } from "@/lib/formatters";
 
@@ -26,7 +26,7 @@ export default async function ClientWorkoutDetailsPage({
 
   const [workoutLog, exercises] = await Promise.all([
     getClientWorkoutLogById(user.id, id),
-    listExercises(),
+    getExercises(true),
   ]);
 
   if (!workoutLog) {

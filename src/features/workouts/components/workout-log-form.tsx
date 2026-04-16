@@ -146,7 +146,7 @@ export function WorkoutLogForm({
             ))
           ) : (
             <p className="text-muted-foreground text-sm">
-              Активных упражнений пока нет. Попросите администратора добавить справочник.
+              Справочник упражнений пуст.
             </p>
           )}
         </div>

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/features/auth/get-user";
 import { createClientWorkoutLog } from "@/features/workouts/actions";
 import { WorkoutLogForm } from "@/features/workouts/components/workout-log-form";
-import { listExercises } from "@/features/workouts/queries";
+import { getExercises } from "@/features/workouts/queries";
 import { getMoscowDateInputValue, getMoscowTimeInputValue } from "@/lib/datetime";
 
 function getDefaultDateTimeLocal() {
@@ -15,7 +15,7 @@ function getDefaultDateTimeLocal() {
 
 export default async function ClientNewWorkoutPage() {
   await requireUser("client");
-  const exercises = await listExercises();
+  const exercises = await getExercises(true);
 
   return (
     <div className="space-y-6">

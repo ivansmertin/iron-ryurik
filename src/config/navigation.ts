@@ -6,7 +6,8 @@ export type IconName =
   | "user"
   | "clock"
   | "users"
-  | "credit-card";
+  | "credit-card"
+  | "dumbbell";
 
 export interface NavLink {
   href: string;
@@ -33,5 +34,6 @@ export const adminLinks: NavLink[] = [
   { href: "/admin/schedule", label: "Расписание", icon: "calendar" },
   { href: "/admin/clients", label: "Клиенты", icon: "users" },
   { href: "/admin/memberships", label: "Абонементы", icon: "credit-card" },
+  { href: "/admin/exercises", label: "Упражнения", icon: "dumbbell" },
   { href: "/admin/profile", label: "Профиль", icon: "user" },
 ];

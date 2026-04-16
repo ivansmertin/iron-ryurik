@@ -186,3 +186,7 @@ export async function getExerciseById(exerciseId: string) {
     "workouts.getExerciseById",
   );
 }
+
+export async function getExercises(activeOnly: boolean = false) {
+  return listExercises({ includeInactive: !activeOnly });
+}

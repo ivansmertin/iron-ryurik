@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/features/auth/get-user";
 import { createTrainerClientWorkoutLog } from "@/features/workouts/actions";
 import { WorkoutLogForm } from "@/features/workouts/components/workout-log-form";
-import { canTrainerAccessClient, listExercises } from "@/features/workouts/queries";
+import { canTrainerAccessClient, getExercises } from "@/features/workouts/queries";
 import { getMoscowDateInputValue, getMoscowTimeInputValue } from "@/lib/datetime";
 
 type TrainerClientNewWorkoutPageProps = {
@@ -28,7 +28,7 @@ export default async function TrainerClientNewWorkoutPage({
     notFound();
   }
 
-  const exercises = await listExercises();
+  const exercises = await getExercises(true);
 
   return (
     <div className="space-y-6">
