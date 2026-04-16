@@ -15,7 +15,7 @@ export default async function AdminLayout({
     <div className="flex h-dvh flex-col md:flex-row">
       <AppSidebar links={adminLinks} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="bg-background/80 flex h-14 shrink-0 items-center justify-between border-b border-border/70 px-4 backdrop-blur md:justify-end">
+        <header className="bg-background/80 flex h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] shrink-0 items-center justify-between border-b border-border/70 px-4 backdrop-blur md:justify-end">
           <span className="text-lg font-bold tracking-tight md:hidden">
             Железный Рюрик
           </span>
