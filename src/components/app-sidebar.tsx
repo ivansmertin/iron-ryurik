@@ -13,6 +13,7 @@ import {
   Users,
   CreditCard,
   Dumbbell,
+  Circle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Logo } from "@/components/logo";
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { signOut } from "@/features/auth/actions";
 import type { IconName, NavLink } from "@/config/navigation";
 
-const iconMap: Record<IconName, LucideIcon> = {
+const iconMap: Partial<Record<IconName, LucideIcon>> = {
   home: Home,
   calendar: Calendar,
   "clipboard-list": ClipboardList,
@@ -58,7 +59,7 @@ export function AppSidebar({ links }: { links: NavLink[] }) {
       <Separator />
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
         {links.map((link) => {
-          const Icon = iconMap[link.icon];
+          const Icon = iconMap[link.icon] || Circle;
           return (
             <Link
               key={link.href}
@@ -96,7 +97,7 @@ export function MobileBottomNav({ links }: { links: NavLink[] }) {
     <nav className="bg-background/95 fixed bottom-0 left-0 w-full z-50 border-t border-border/70 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-stretch justify-around">
         {links.map((link) => {
-          const Icon = iconMap[link.icon];
+          const Icon = iconMap[link.icon] || Circle;
           const isActive = activeHref === link.href;
           return (
             <Link
