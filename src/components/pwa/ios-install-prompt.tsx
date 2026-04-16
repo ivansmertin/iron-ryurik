@@ -28,6 +28,7 @@ const AddToHomeIcon = () => (
 
 export function IosInstallPrompt() {
   const [isVisible, setIsVisible] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => {
     // Check if the device is iOS
@@ -42,76 +43,95 @@ export function IosInstallPrompt() {
 
     // Check if the user has already dismissed the prompt
     const isDismissed = localStorage.getItem("pwa_ios_prompt_dismissed");
+    const dismissalExpiry = isDismissed ? parseInt(isDismissed, 10) : 0;
+    const now = new Date().getTime();
 
-    // Only show if on iOS, not installed, and not recently dismissed
-    if (isIOS && !isStandalone && !isDismissed) {
-      // INSTANT appearance as requested by user
-      setIsVisible(true);
+    // Only show if on iOS, not installed, and not recently dismissed (or dismissal expired)
+    if (isIOS && !isStandalone && (!isDismissed || now > dismissalExpiry)) {
+      // PREVENT flickering: Wait for 3 seconds before showing
+      const timer = setTimeout(() => {
+        setShouldRender(true);
+        // Small delay to trigger the animation
+        setTimeout(() => setIsVisible(true), 50);
+      }, 3000);
+
+      return () => clearTimeout(timer);
     }
   }, []);
 
   const handleDismiss = () => {
     setIsVisible(false);
-    // Remember dismissal for 14 days for a better UX
-    const expiry = new Date().getTime() + 14 * 24 * 60 * 60 * 1000;
-    localStorage.setItem("pwa_ios_prompt_dismissed", expiry.toString());
+    // Wait for animation to finish before unrendering
+    setTimeout(() => {
+      setShouldRender(false);
+      // Remember dismissal for 7 days (reduced from 14 for better testing/re-engagement)
+      const expiry = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
+      localStorage.setItem("pwa_ios_prompt_dismissed", expiry.toString());
+    }, 500);
   };
 
-  if (!isVisible) return null;
+  if (!shouldRender) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-24 z-[100] px-4 animate-in slide-in-from-bottom-8 duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
+    <div 
+      className={cn(
+        "fixed inset-x-0 bottom-6 z-[100] px-4 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        isVisible 
+          ? "translate-y-0 opacity-100 scale-100" 
+          : "translate-y-20 opacity-0 scale-95"
+      )}
+    >
       <div 
         className={cn(
-          "relative mx-auto max-w-[320px] overflow-hidden rounded-[2.5rem] border border-white/20 bg-white/70 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.15)] backdrop-blur-2xl transition-all",
-          "dark:border-white/10 dark:bg-black/60 dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)]"
+          "relative mx-auto max-w-[280px] overflow-hidden rounded-[2rem] border border-white/20 bg-white/80 p-5 shadow-[0_20px_40px_rgba(0,0,0,0.15)] backdrop-blur-xl transition-all",
+          "dark:border-white/10 dark:bg-black/70 dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
         )}
       >
         {/* Visual Handle */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 h-1 w-10 rounded-full bg-muted/40" />
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 h-1 w-8 rounded-full bg-muted/30" />
 
         {/* Close Button */}
         <button
           onClick={handleDismiss}
-          className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground transition-all"
+          className="absolute right-3 top-3 rounded-full p-1 text-muted-foreground/50 hover:bg-muted/30 hover:text-foreground transition-all"
           aria-label="Закрыть"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <div className="flex flex-col gap-6 pt-2">
+        <div className="flex flex-col gap-4 pt-1">
           <div className="text-center">
-            <h3 className="text-lg font-black tracking-tight text-foreground uppercase italic leading-tight">
-              Установить приложение
+            <h3 className="text-base font-black tracking-tight text-foreground uppercase italic leading-tight">
+              Установить
             </h3>
-            <p className="mt-1 text-[11px] font-medium text-muted-foreground leading-relaxed">
-              Добавьте <span className="text-primary font-bold italic lowercase">железный рюрик</span><br />на экран «Домой»
+            <p className="mt-0.5 text-[10px] font-medium text-muted-foreground leading-snug">
+              Добавьте <span className="text-primary font-bold italic lowercase">железный рюрик</span> на главный экран
             </p>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 group">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm group-hover:scale-110 transition-transform duration-500 ease-spring">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm">
                 <SafariShareIcon />
               </div>
-              <p className="text-[13px] font-semibold text-foreground/90 leading-snug">
-                1. Нажмите <span className="text-primary font-black uppercase italic">«Поделиться»</span>
+              <p className="text-[12px] font-semibold text-foreground/90 leading-tight">
+                Нажмите <span className="text-primary font-black uppercase italic text-[11px]">«Поделиться»</span>
               </p>
             </div>
             
-            <div className="flex items-center gap-4 group">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm group-hover:scale-110 transition-transform duration-500 ease-spring">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm">
                 <AddToHomeIcon />
               </div>
-              <p className="text-[13px] font-semibold text-foreground/90 leading-snug">
-                2. Выберите <span className="text-primary font-black uppercase italic">«На экран „Домой“»</span>
+              <p className="text-[12px] font-semibold text-foreground/90 leading-tight">
+                Выберите <span className="text-primary font-black uppercase italic text-[11px]">«На экран „Домой“»</span>
               </p>
             </div>
           </div>
 
           <button
             onClick={handleDismiss}
-            className="w-full rounded-2xl bg-primary py-3.5 text-xs font-black tracking-widest text-primary-foreground shadow-lg shadow-primary/20 uppercase italic transition-all hover:brightness-110 active:scale-[0.96]"
+            className="w-full rounded-xl bg-primary py-2.5 text-[10px] font-black tracking-[0.15em] text-primary-foreground shadow-lg shadow-primary/20 uppercase italic transition-all hover:brightness-110 active:scale-[0.96]"
           >
             Понятно
           </button>
