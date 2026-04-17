@@ -9,8 +9,9 @@ type OccupancyActionResult = { value: number } | { error: string };
 export async function setExactOccupancyAction(
   value: number
 ): Promise<OccupancyActionResult> {
+  await requireUser("admin");
+
   try {
-    await requireUser("admin");
     const updatedValue = await updateGymOccupancy({ exactValue: value });
     revalidatePath("/admin", "layout");
     revalidatePath("/client", "layout");
@@ -23,8 +24,9 @@ export async function setExactOccupancyAction(
 export async function changeOccupancyAction(
   delta: number
 ): Promise<OccupancyActionResult> {
+  await requireUser("admin");
+
   try {
-    await requireUser("admin");
     const updatedValue = await updateGymOccupancy({ delta });
     revalidatePath("/admin", "layout");
     revalidatePath("/client", "layout");

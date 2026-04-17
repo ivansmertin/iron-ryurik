@@ -88,6 +88,9 @@ model MembershipPlan {
   memberships Membership[]
 }
 
+// Partial unique index "Membership_userId_active_key" на (userId) WHERE status='active'
+// создаётся миграцией 20260417120000_unique_active_membership.
+// Prisma не поддерживает WHERE в @@unique — индекс живёт только в миграции.
 model Membership {
   id              String           @id @default(uuid()) @db.Uuid
   userId          String           @db.Uuid

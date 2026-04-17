@@ -1,4 +1,7 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+
+type OccupancyRow = { occupancy: number };
 
 export async function getGymOccupancy(): Promise<number> {
   const state = await prisma.gymState.findUnique({
@@ -9,38 +12,39 @@ export async function getGymOccupancy(): Promise<number> {
   return state?.occupancy ?? 0;
 }
 
+/**
+ * Атомарное обновление occupancy через один SQL-запрос.
+ * Защита от гонки: при параллельных delta-инкрементах Postgres сериализует
+ * UPDATE строк через row-level lock, поэтому ни один инкремент не теряется.
+ * GREATEST(0, ...) гарантирует, что значение не уйдёт в минус.
+ */
 export async function updateGymOccupancy(payload: {
   exactValue?: number;
   delta?: number;
-}) {
-  return await prisma.$transaction(async (tx) => {
-    const currentState = await tx.gymState.findUnique({
-      where: { id: 1 },
-    });
+}): Promise<number> {
+  if (payload.exactValue !== undefined) {
+    const exact = payload.exactValue;
+    const rows = await prisma.$queryRaw<OccupancyRow[]>(Prisma.sql`
+      INSERT INTO "GymState" ("id", "occupancy", "updatedAt")
+      VALUES (1, GREATEST(0, ${exact}::int), NOW())
+      ON CONFLICT ("id") DO UPDATE
+        SET "occupancy" = GREATEST(0, ${exact}::int),
+            "updatedAt" = NOW()
+      RETURNING "occupancy";
+    `);
 
-    let newOccupancy = 0;
+    return rows[0]?.occupancy ?? 0;
+  }
 
-    if (payload.exactValue !== undefined) {
-      newOccupancy = payload.exactValue;
-    } else if (payload.delta !== undefined) {
-      const current = currentState?.occupancy ?? 0;
-      newOccupancy = Math.max(0, current + payload.delta);
-    }
+  const delta = payload.delta ?? 0;
+  const rows = await prisma.$queryRaw<OccupancyRow[]>(Prisma.sql`
+    INSERT INTO "GymState" ("id", "occupancy", "updatedAt")
+    VALUES (1, GREATEST(0, ${delta}::int), NOW())
+    ON CONFLICT ("id") DO UPDATE
+      SET "occupancy" = GREATEST(0, "GymState"."occupancy" + ${delta}::int),
+          "updatedAt" = NOW()
+    RETURNING "occupancy";
+  `);
 
-    // Не позволяем уходить в минус
-    newOccupancy = Math.max(0, newOccupancy);
-
-    const updated = await tx.gymState.upsert({
-      where: { id: 1 },
-      create: {
-        id: 1,
-        occupancy: newOccupancy,
-      },
-      update: {
-        occupancy: newOccupancy,
-      },
-    });
-
-    return updated.occupancy;
-  });
+  return rows[0]?.occupancy ?? 0;
 }

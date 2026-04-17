@@ -164,6 +164,11 @@ describe("bookSessionForUser", () => {
         status: {
           in: ["pending", "completed", "no_show"],
         },
+        user: {
+          is: {
+            deletedAt: null,
+          },
+        },
       },
     });
   });

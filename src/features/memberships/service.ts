@@ -1,8 +1,34 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import {
   addDaysToMoscowDate,
   createUtcDateFromMoscowDate,
 } from "@/lib/datetime";
+
+export const DUPLICATE_ACTIVE_MEMBERSHIP_INDEX = "Membership_userId_active_key";
+export const DUPLICATE_ACTIVE_MEMBERSHIP_MESSAGE =
+  "У клиента уже есть активный абонемент";
+
+function isDuplicateActiveMembershipError(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
+  }
+
+  if (error.code !== "P2002") {
+    return false;
+  }
+
+  const target = error.meta?.target;
+
+  if (typeof target === "string") {
+    return target === DUPLICATE_ACTIVE_MEMBERSHIP_INDEX;
+  }
+
+  if (Array.isArray(target)) {
+    return target.includes(DUPLICATE_ACTIVE_MEMBERSHIP_INDEX);
+  }
+
+  return false;
+}
 
 type MembershipMutationClient = Pick<
   Prisma.TransactionClient,
@@ -51,20 +77,28 @@ export async function issueMembershipWithDb(
       ? createUtcDateFromMoscowDate(input.paidAt)
       : null;
 
-  return db.membership.create({
-    data: {
-      userId: clientId,
-      planId: plan.id,
-      visitsRemaining: plan.visits,
-      visitsTotal: plan.visits,
-      startsAt,
-      endsAt,
-      status: "active",
-      paidAt,
-      paidAmount:
-        input.isPaid && input.paidAmount !== "" && input.paidAmount !== undefined
-          ? input.paidAmount.toFixed(2)
-          : null,
-    },
-  });
+  try {
+    return await db.membership.create({
+      data: {
+        userId: clientId,
+        planId: plan.id,
+        visitsRemaining: plan.visits,
+        visitsTotal: plan.visits,
+        startsAt,
+        endsAt,
+        status: "active",
+        paidAt,
+        paidAmount:
+          input.isPaid && input.paidAmount !== "" && input.paidAmount !== undefined
+            ? input.paidAmount.toFixed(2)
+            : null,
+      },
+    });
+  } catch (error) {
+    if (isDuplicateActiveMembershipError(error)) {
+      throw new Error(DUPLICATE_ACTIVE_MEMBERSHIP_MESSAGE);
+    }
+
+    throw error;
+  }
 }

@@ -389,11 +389,20 @@ export async function bookSessionForUser(
     raise("SESSION_IN_PAST");
   }
 
+  // Capacity учитывается только по активным бронированиям живых пользователей.
+  // Soft-delete пользователя каскадом отменяет pending booking в триггере
+  // handle_user_delete, но фильтр здесь защищает от рассинхронизации
+  // (историческая запись до миграции, задержка репликации и т.п.).
   const currentBookings = await db.booking.count({
     where: {
       sessionId,
       status: {
         in: [...activeBookingStatuses],
+      },
+      user: {
+        is: {
+          deletedAt: null,
+        },
       },
     },
   });

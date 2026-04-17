@@ -83,35 +83,42 @@ export async function GET(request: Request) {
       continue;
     }
 
-    for (const subscription of log.user.subscriptions) {
-      const result = await sendNotificationToDevice(
-        {
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.p256dh,
-            auth: subscription.auth,
+    const results = await Promise.allSettled(
+      log.user.subscriptions.map(async (subscription) => {
+        const result = await sendNotificationToDevice(
+          {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dh,
+              auth: subscription.auth,
+            },
           },
-        },
-        {
-          title: "Добавьте заметки о тренировке",
-          body: log.session?.title ?? "Запишите впечатления и нагрузку в дневник.",
-          data: {
-            url: `/client/diary/${log.id}`,
+          {
+            title: "Добавьте заметки о тренировке",
+            body: log.session?.title ?? "Запишите впечатления и нагрузку в дневник.",
+            data: {
+              url: `/client/diary/${log.id}`,
+            },
           },
-        },
-      );
+        );
 
-      if (result.success) {
-        sent += 1;
-      }
+        if (result.error === "GONE") {
+          await prisma.deviceSubscription.delete({
+            where: {
+              id: subscription.id,
+            },
+          });
+          return { sent: 0, removed: 1 } as const;
+        }
 
-      if (result.error === "GONE") {
-        await prisma.deviceSubscription.delete({
-          where: {
-            id: subscription.id,
-          },
-        });
-        removedSubscriptions += 1;
+        return { sent: result.success ? 1 : 0, removed: 0 } as const;
+      }),
+    );
+
+    for (const outcome of results) {
+      if (outcome.status === "fulfilled") {
+        sent += outcome.value.sent;
+        removedSubscriptions += outcome.value.removed;
       }
     }
 

@@ -36,13 +36,21 @@ describe("Gym State Actions", () => {
       expect(result).toEqual({ value: 10 });
     });
 
-    it("returns error if user is not authorized", async () => {
+    it("propagates auth rejection instead of swallowing it", async () => {
       vi.mocked(requireUser).mockRejectedValue(new Error("Unauthorized"));
-      
-      const result = await setExactOccupancyAction(10);
-      
-      expect(result).toEqual({ error: expect.stringContaining("Не удалось обновить") });
+
+      await expect(setExactOccupancyAction(10)).rejects.toThrow("Unauthorized");
       expect(service.updateGymOccupancy).not.toHaveBeenCalled();
+      expect(revalidatePath).not.toHaveBeenCalled();
+    });
+
+    it("returns graceful error if DB update fails for authorized admin", async () => {
+      vi.mocked(requireUser).mockResolvedValue(mockAdmin as any);
+      vi.mocked(service.updateGymOccupancy).mockRejectedValue(new Error("db down"));
+
+      const result = await setExactOccupancyAction(10);
+
+      expect(result).toEqual({ error: expect.stringContaining("Не удалось обновить") });
     });
   });
 
@@ -55,6 +63,13 @@ describe("Gym State Actions", () => {
 
       expect(service.updateGymOccupancy).toHaveBeenCalledWith({ delta: 1 });
       expect(result).toEqual({ value: 6 });
+    });
+
+    it("propagates auth rejection instead of swallowing it", async () => {
+      vi.mocked(requireUser).mockRejectedValue(new Error("Unauthorized"));
+
+      await expect(changeOccupancyAction(1)).rejects.toThrow("Unauthorized");
+      expect(service.updateGymOccupancy).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockDeep, mockReset } from "vitest-mock-extended";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { issueMembershipWithDb } from "../service";
+import {
+  issueMembershipWithDb,
+  DUPLICATE_ACTIVE_MEMBERSHIP_INDEX,
+  DUPLICATE_ACTIVE_MEMBERSHIP_MESSAGE,
+} from "../service";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockDeep<any>(),
@@ -70,6 +75,45 @@ describe("Memberships Service", () => {
       await expect(
         issueMembershipWithDb(prisma as any, "client-1", input)
       ).rejects.toThrow("Активный план не найден");
+    });
+
+    it("translates P2002 on the active-membership index to a domain error", async () => {
+      vi.mocked(prisma.membershipPlan.findFirst).mockResolvedValue(mockPlan as any);
+      const duplicate = new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed",
+        {
+          code: "P2002",
+          clientVersion: "7.0.0",
+          meta: { target: [DUPLICATE_ACTIVE_MEMBERSHIP_INDEX] },
+        },
+      );
+      vi.mocked(prisma.membership.create).mockRejectedValue(duplicate);
+
+      await expect(
+        issueMembershipWithDb(prisma as any, "client-1", {
+          planId: "plan-1",
+          startsAt: "2024-04-17",
+          isPaid: false,
+        }),
+      ).rejects.toThrow(DUPLICATE_ACTIVE_MEMBERSHIP_MESSAGE);
+    });
+
+    it("rethrows unrelated Prisma errors untouched", async () => {
+      vi.mocked(prisma.membershipPlan.findFirst).mockResolvedValue(mockPlan as any);
+      const unrelated = new Prisma.PrismaClientKnownRequestError("boom", {
+        code: "P2002",
+        clientVersion: "7.0.0",
+        meta: { target: ["Membership_something_else_key"] },
+      });
+      vi.mocked(prisma.membership.create).mockRejectedValue(unrelated);
+
+      await expect(
+        issueMembershipWithDb(prisma as any, "client-1", {
+          planId: "plan-1",
+          startsAt: "2024-04-17",
+          isPaid: false,
+        }),
+      ).rejects.toBe(unrelated);
     });
 
     it("handles unpaid memberships correctly", async () => {
