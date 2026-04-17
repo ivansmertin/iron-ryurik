@@ -44,6 +44,7 @@ export default async function AdminDashboardPage() {
       todaySessionsCount,
       weekSessionsCount,
       activeMembershipsCount,
+      pendingDropInsCount,
       totalClientsCount,
     ] = await withPrismaReadRetry(
       async () => {

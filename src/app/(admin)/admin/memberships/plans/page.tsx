@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminToastListener } from "@/components/admin/toast-listener";
 import { BooleanBadge } from "@/components/admin/status-badges";
 import { PageHeader } from "@/components/admin/page-header";
+import { TabLinks } from "@/components/admin/tab-links";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
