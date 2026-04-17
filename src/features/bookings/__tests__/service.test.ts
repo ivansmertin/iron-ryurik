@@ -168,6 +168,14 @@ describe("bookSessionForUser", () => {
     });
   });
 
+  it("rejects when the session is full", async () => {
+    const db = createBookingDb({ currentBookings: 8 }); // capacity is 8
+
+    await expect(
+      bookSessionForUser(db as never, "user-1", "session-1", now),
+    ).rejects.toMatchObject({ code: "SESSION_FULL" });
+  });
+
   it("requires available sessions after pending reservations are counted", async () => {
     const db = createBookingDb({ membership: null });
 
