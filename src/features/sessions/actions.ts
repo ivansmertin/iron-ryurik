@@ -109,7 +109,9 @@ export async function updateSession(
         version: true,
         bookings: {
           where: {
-            status: "booked",
+            status: {
+              in: ["pending", "completed", "no_show"],
+            },
           },
           select: {
             id: true,

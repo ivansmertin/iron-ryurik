@@ -40,11 +40,11 @@ function getBookingVariant(status: BookingStatus) {
   switch (status) {
     case "cancelled":
       return "destructive" as const;
-    case "attended":
+    case "completed":
       return "secondary" as const;
     case "no_show":
       return "outline" as const;
-    case "booked":
+    case "pending":
     default:
       return "default" as const;
   }

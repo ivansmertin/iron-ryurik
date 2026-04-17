@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
 import { getMoscowWeekRange } from "@/lib/datetime";
+import { activeBookingStatuses } from "./service";
 
 export const clientSchedulePeriods = ["this-week", "next-week", "later"] as const;
 
@@ -12,6 +13,8 @@ export type ClientMembershipSnapshot = {
         id: string;
         visitsRemaining: number;
         visitsTotal: number;
+        reservedSessions: number;
+        availableSessions: number;
         endsAt: Date;
         plan: {
           name: string;
@@ -23,6 +26,8 @@ export type ClientMembershipSnapshot = {
         id: string;
         visitsRemaining: number;
         visitsTotal: number;
+        reservedSessions: number;
+        availableSessions: number;
         endsAt: Date;
         plan: {
           name: string;
@@ -55,7 +60,7 @@ export type ClientScheduleSession = {
 
 export type ClientBookingRecord = {
   id: string;
-  status: "booked" | "cancelled" | "attended" | "no_show";
+  status: "pending" | "cancelled" | "completed" | "no_show";
   bookedAt: Date;
   cancelledAt: Date | null;
   cancelReason: string | null;
@@ -65,6 +70,28 @@ export type ClientBookingRecord = {
     durationMinutes: number;
   };
 };
+
+function addMembershipAvailability<
+  T extends {
+    visitsRemaining: number;
+    _count: {
+      bookings: number;
+    };
+  },
+>(membership: T) {
+  const { _count, ...rest } = membership;
+  const reservedSessions = _count.bookings;
+  const availableSessions = Math.max(
+    membership.visitsRemaining - reservedSessions,
+    0,
+  );
+
+  return {
+    ...rest,
+    reservedSessions,
+    availableSessions,
+  };
+}
 
 function getScheduleRange(period: ClientSchedulePeriod, now: Date) {
   const currentWeekRange = getMoscowWeekRange(0, now);
@@ -90,7 +117,7 @@ export async function getClientMembershipSnapshot(
   userId: string,
   now = new Date(),
 ) {
-  const activeMembership = await prisma.membership.findFirst({
+  const activeMembershipRecord = await prisma.membership.findFirst({
     where: {
       userId,
       status: "active",
@@ -114,13 +141,26 @@ export async function getClientMembershipSnapshot(
           name: true,
         },
       },
+      _count: {
+        select: {
+          bookings: {
+            where: {
+              status: "pending",
+            },
+          },
+        },
+      },
     },
   });
+
+  const activeMembership = activeMembershipRecord
+    ? addMembershipAvailability(activeMembershipRecord)
+    : null;
 
   return {
     activeMembership,
     bookableMembership:
-      activeMembership && activeMembership.visitsRemaining > 0
+      activeMembership && activeMembership.availableSessions > 0
         ? activeMembership
         : null,
   } satisfies ClientMembershipSnapshot;
@@ -137,7 +177,7 @@ export async function getClientDashboardData(
         prisma.booking.findFirst({
           where: {
             userId,
-            status: "booked",
+            status: "pending",
             session: {
               type: "group",
               status: "scheduled",
@@ -186,7 +226,7 @@ export async function getClientScheduleData(
     async () => {
       const { start, end } = getScheduleRange(period, now);
 
-      const bookableMembership = await prisma.membership.findFirst({
+      const memberships = await prisma.membership.findMany({
         where: {
           userId,
           status: "active",
@@ -196,17 +236,29 @@ export async function getClientScheduleData(
           endsAt: {
             gte: now,
           },
-          visitsRemaining: {
-            gt: 0,
-          },
         },
         orderBy: {
-          endsAt: "desc",
+          endsAt: "asc",
         },
         select: {
           id: true,
+          visitsRemaining: true,
+          _count: {
+            select: {
+              bookings: {
+                where: {
+                  status: "pending",
+                },
+              },
+            },
+          },
         },
       });
+
+      const bookableMembership =
+        memberships.map(addMembershipAvailability).find((membership) =>
+          membership.availableSessions > 0
+        ) ?? null;
 
       const sessions = await prisma.session.findMany({
         where: {
@@ -233,7 +285,9 @@ export async function getClientScheduleData(
           capacity: true,
           bookings: {
             where: {
-              status: "booked",
+              status: {
+                in: [...activeBookingStatuses],
+              },
             },
             select: {
               userId: true,

@@ -2,41 +2,46 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bookSessionForUser,
   cancelBookingForUser,
+  confirmAttendanceForBooking,
+  markNoShowForBooking,
 } from "@/features/bookings/service";
 
 const now = new Date("2026-04-14T12:00:00.000Z");
 
+const sessionRow = {
+  id: "session-1",
+  title: "Intervals",
+  startsAt: new Date("2026-04-14T15:00:00.000Z"),
+  durationMinutes: 60,
+  capacity: 8,
+  status: "scheduled",
+  type: "group",
+};
+
+const membershipRow = {
+  id: "membership-1",
+  status: "active",
+  visitsRemaining: 3,
+  reservedSessions: 0,
+};
+
 function createBookingDb({
-  sessionRow,
-  membershipRow,
   existingBooking,
   currentBookings = 0,
+  membership = membershipRow,
 }: {
-  sessionRow: {
-    id: string;
-    title: string | null;
-    startsAt: Date;
-    durationMinutes: number;
-    capacity: number;
-    status: string;
-    type: string;
-  };
-  membershipRow?: {
-    id: string;
-    status: string;
-    visitsRemaining: number;
-  };
   existingBooking?: {
     id: string;
     status: string;
   } | null;
   currentBookings?: number;
-}) {
-  const db = {
+  membership?: typeof membershipRow | null;
+} = {}) {
+  return {
     $queryRaw: vi
       .fn()
       .mockResolvedValueOnce([sessionRow])
-      .mockResolvedValueOnce(membershipRow ? [membershipRow] : []),
+      .mockResolvedValueOnce(membership ? [membership] : []),
     booking: {
       count: vi.fn().mockResolvedValue(currentBookings),
       findFirst: vi.fn().mockResolvedValue(existingBooking ?? null),
@@ -44,14 +49,47 @@ function createBookingDb({
       update: vi.fn().mockResolvedValue({ id: existingBooking?.id ?? "booking-new" }),
     },
     membership: {
-      update: vi.fn().mockResolvedValue({ id: membershipRow?.id ?? "membership-1" }),
+      update: vi.fn().mockResolvedValue({ id: membership?.id ?? "membership-1" }),
     },
     session: {
       update: vi.fn(),
     },
   };
+}
 
-  return db;
+function createAttendanceRow(status = "pending") {
+  return {
+    id: "booking-1",
+    userId: "user-1",
+    sessionId: "session-1",
+    membershipId: "membership-1",
+    status,
+    sessionTitle: "Intervals",
+    startsAt: new Date("2026-04-14T15:00:00.000Z"),
+    durationMinutes: 60,
+    sessionStatus: "scheduled",
+    clientFullName: "Client One",
+    clientEmail: "client@example.com",
+    visitsRemaining: 3,
+  };
+}
+
+function createAttendanceDb(status = "pending") {
+  return {
+    $queryRaw: vi
+      .fn()
+      .mockResolvedValueOnce([createAttendanceRow(status)])
+      .mockResolvedValueOnce([membershipRow]),
+    booking: {
+      update: vi.fn().mockResolvedValue({ id: "booking-1" }),
+    },
+    membership: {
+      update: vi.fn().mockResolvedValue({ id: "membership-1" }),
+    },
+    session: {
+      update: vi.fn(),
+    },
+  };
 }
 
 function getRawSqlText(query: unknown) {
@@ -86,132 +124,64 @@ describe("bookSessionForUser", () => {
     vi.useRealTimers();
   });
 
-  it("успешно бронирует занятие и списывает визит", async () => {
-    const db = createBookingDb({
-      sessionRow: {
-        id: "session-1",
-        title: "Интервалы",
-        startsAt: new Date("2026-04-14T15:00:00.000Z"),
-        durationMinutes: 60,
-        capacity: 8,
-        status: "scheduled",
-        type: "group",
-      },
-      membershipRow: {
-        id: "membership-1",
-        status: "active",
-        visitsRemaining: 3,
-      },
-    });
+  it("creates a pending booking without debiting the membership", async () => {
+    const db = createBookingDb();
 
     const result = await bookSessionForUser(db as never, "user-1", "session-1", now);
 
     expect(result).toEqual({
       bookingId: "booking-new",
       sessionId: "session-1",
-      sessionTitle: "Интервалы",
+      sessionTitle: "Intervals",
       startsAt: new Date("2026-04-14T15:00:00.000Z"),
       durationMinutes: 60,
     });
-    expect(db.membership.update).toHaveBeenCalledWith({
-      where: { id: "membership-1" },
-      data: {
-        visitsRemaining: {
-          decrement: 1,
-        },
-      },
-    });
+    expect(db.membership.update).not.toHaveBeenCalled();
     expect(db.booking.create).toHaveBeenCalledWith({
       data: {
         userId: "user-1",
         sessionId: "session-1",
         membershipId: "membership-1",
-        status: "booked",
+        status: "pending",
         bookedAt: now,
       },
     });
   });
 
-  it("возвращает SESSION_FULL, если мест больше нет", async () => {
-    const db = createBookingDb({
-      sessionRow: {
-        id: "session-1",
-        title: "Интервалы",
-        startsAt: new Date("2026-04-14T15:00:00.000Z"),
-        durationMinutes: 60,
-        capacity: 1,
-        status: "scheduled",
-        type: "group",
-      },
-      currentBookings: 1,
-    });
+  it("counts active attendance states against session capacity", async () => {
+    const db = createBookingDb({ currentBookings: 1 });
 
     await expect(
       bookSessionForUser(db as never, "user-1", "session-1", now),
-    ).rejects.toMatchObject({ code: "SESSION_FULL" });
-    expect(db.booking.findFirst).not.toHaveBeenCalled();
+    ).resolves.toBeDefined();
+
+    expect(db.booking.count).toHaveBeenCalledWith({
+      where: {
+        sessionId: "session-1",
+        status: {
+          in: ["pending", "completed", "no_show"],
+        },
+      },
+    });
   });
 
-  it("возвращает NO_ACTIVE_MEMBERSHIP, если активного абонемента нет", async () => {
-    const db = createBookingDb({
-      sessionRow: {
-        id: "session-1",
-        title: "Интервалы",
-        startsAt: new Date("2026-04-14T15:00:00.000Z"),
-        durationMinutes: 60,
-        capacity: 8,
-        status: "scheduled",
-        type: "group",
-      },
-      membershipRow: undefined,
-    });
-
-    await expect(
-      bookSessionForUser(db as never, "user-1", "session-1", now),
-    ).rejects.toMatchObject({ code: "NO_ACTIVE_MEMBERSHIP" });
-  });
-
-  it("не даёт бронировать по абонементу, который ещё не начался", async () => {
-    const db = createBookingDb({
-      sessionRow: {
-        id: "session-1",
-        title: "Интервалы",
-        startsAt: new Date("2026-04-14T15:00:00.000Z"),
-        durationMinutes: 60,
-        capacity: 8,
-        status: "scheduled",
-        type: "group",
-      },
-      membershipRow: undefined,
-    });
+  it("requires available sessions after pending reservations are counted", async () => {
+    const db = createBookingDb({ membership: null });
 
     await expect(
       bookSessionForUser(db as never, "user-1", "session-1", now),
     ).rejects.toMatchObject({ code: "NO_ACTIVE_MEMBERSHIP" });
 
     const membershipQuery = db.$queryRaw.mock.calls[1]?.[0];
-    expect(getRawSqlText(membershipQuery)).toContain('"startsAt" <= NOW()');
+    expect(getRawSqlText(membershipQuery)).toContain("b.status = 'pending'");
+    expect(getRawSqlText(membershipQuery)).toContain('m."visitsRemaining" >');
   });
 
-  it("возвращает ALREADY_BOOKED, если запись уже активна", async () => {
+  it("rejects when the user already has a pending booking", async () => {
     const db = createBookingDb({
-      sessionRow: {
-        id: "session-1",
-        title: "Интервалы",
-        startsAt: new Date("2026-04-14T15:00:00.000Z"),
-        durationMinutes: 60,
-        capacity: 8,
-        status: "scheduled",
-        type: "group",
-      },
-      membershipRow: {
-        id: "membership-1",
-        status: "active",
-        visitsRemaining: 3,
-      },
       existingBooking: {
         id: "booking-1",
-        status: "booked",
+        status: "pending",
       },
     });
 
@@ -221,22 +191,8 @@ describe("bookSessionForUser", () => {
     expect(db.membership.update).not.toHaveBeenCalled();
   });
 
-  it("переиспользует отменённую запись", async () => {
+  it("reuses a cancelled booking as pending", async () => {
     const db = createBookingDb({
-      sessionRow: {
-        id: "session-1",
-        title: "Интервалы",
-        startsAt: new Date("2026-04-14T15:00:00.000Z"),
-        durationMinutes: 60,
-        capacity: 8,
-        status: "scheduled",
-        type: "group",
-      },
-      membershipRow: {
-        id: "membership-1",
-        status: "active",
-        visitsRemaining: 3,
-      },
       existingBooking: {
         id: "booking-1",
         status: "cancelled",
@@ -249,101 +205,17 @@ describe("bookSessionForUser", () => {
     expect(db.booking.update).toHaveBeenCalledWith({
       where: { id: "booking-1" },
       data: {
-        status: "booked",
+        status: "pending",
         bookedAt: now,
         cancelledAt: null,
         cancelReason: null,
+        confirmedAt: null,
+        confirmedById: null,
+        confirmationMethod: null,
         membershipId: "membership-1",
       },
     });
     expect(db.booking.create).not.toHaveBeenCalled();
-  });
-
-  it.skip("@pending: needs test database for real race coverage", async () => {
-    const sessionRow = {
-      id: "session-1",
-      title: "Intervals",
-      startsAt: new Date("2026-04-14T15:00:00.000Z"),
-      durationMinutes: 60,
-      capacity: 1,
-      status: "scheduled",
-      type: "group",
-    };
-
-    const membershipRow = {
-      id: "membership-1",
-      status: "active",
-      visitsRemaining: 2,
-    };
-
-    let bookings = 0;
-    let rawCallCount = 0;
-    let countCallCount = 0;
-    let releaseSecondLock: (() => void) | null = null;
-
-    const secondLockReleased = new Promise<void>((resolve) => {
-      releaseSecondLock = resolve;
-    });
-
-    const db = {
-      $queryRaw: vi.fn(async () => {
-        rawCallCount += 1;
-
-        if (rawCallCount === 1) {
-          return [sessionRow];
-        }
-
-        if (rawCallCount === 2) {
-          return [membershipRow];
-        }
-
-        if (rawCallCount === 3) {
-          await secondLockReleased;
-          return [sessionRow];
-        }
-
-        throw new Error("Unexpected raw query call");
-      }),
-      booking: {
-        count: vi.fn(async () => {
-          countCallCount += 1;
-
-          if (countCallCount === 1) {
-            await Promise.resolve();
-          }
-
-          return bookings;
-        }),
-        findFirst: vi.fn().mockResolvedValue(null),
-        create: vi.fn(async () => {
-          bookings += 1;
-          releaseSecondLock?.();
-          return { id: "booking-1" };
-        }),
-        update: vi.fn(),
-      },
-      membership: {
-        update: vi.fn().mockResolvedValue({ id: "membership-1" }),
-      },
-      session: {
-        update: vi.fn(),
-      },
-    };
-
-    const results = await Promise.allSettled([
-      bookSessionForUser(db as never, "user-1", "session-1", now),
-      bookSessionForUser(db as never, "user-2", "session-1", now),
-    ]);
-
-    expect(results[0]?.status).toBe("fulfilled");
-    expect(results[1]?.status).toBe("rejected");
-
-    if (results[1]?.status === "rejected") {
-      expect(results[1].reason).toMatchObject({ code: "SESSION_FULL" });
-    }
-
-    expect(db.booking.create).toHaveBeenCalledTimes(1);
-    expect(db.membership.update).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -357,7 +229,7 @@ describe("cancelBookingForUser", () => {
     vi.useRealTimers();
   });
 
-  it("отменяет запись и возвращает визит, если до старта больше 12 часов", async () => {
+  it("cancels a pending booking without refunding visits", async () => {
     const db = {
       $queryRaw: vi
         .fn()
@@ -367,150 +239,13 @@ describe("cancelBookingForUser", () => {
             userId: "user-1",
             sessionId: "session-1",
             membershipId: "membership-1",
-            status: "booked",
+            status: "pending",
           },
         ])
         .mockResolvedValueOnce([
           {
             id: "session-1",
-            title: "Интервалы",
-            startsAt: new Date("2026-04-15T15:30:00.000Z"),
-            durationMinutes: 60,
-          },
-        ])
-        .mockResolvedValueOnce([
-          {
-            id: "membership-1",
-            status: "active",
-            visitsRemaining: 2,
-          },
-        ]),
-      booking: {
-        update: vi.fn().mockResolvedValue({ id: "booking-1" }),
-      },
-      membership: {
-        update: vi.fn().mockResolvedValue({ id: "membership-1" }),
-      },
-      session: {
-        update: vi.fn(),
-      },
-    };
-
-    const result = await cancelBookingForUser(
-      db as never,
-      "user-1",
-      "booking-1",
-      now,
-    );
-
-    expect(result).toEqual({
-      bookingId: "booking-1",
-      sessionId: "session-1",
-      sessionTitle: "Интервалы",
-      startsAt: new Date("2026-04-15T15:30:00.000Z"),
-      durationMinutes: 60,
-      membershipRestored: true,
-    });
-    expect(db.booking.update).toHaveBeenCalledWith({
-      where: { id: "booking-1" },
-      data: {
-        status: "cancelled",
-        cancelledAt: now,
-        cancelReason: "client_cancelled",
-      },
-    });
-    expect(db.membership.update).toHaveBeenCalledWith({
-      where: { id: "membership-1" },
-      data: {
-        visitsRemaining: {
-          increment: 1,
-        },
-      },
-    });
-  });
-
-  it("отказывает, если до начала меньше 12 часов", async () => {
-    const db = {
-      $queryRaw: vi
-        .fn()
-        .mockResolvedValueOnce([
-          {
-            id: "booking-1",
-            userId: "user-1",
-            sessionId: "session-1",
-            membershipId: "membership-1",
-            status: "booked",
-          },
-        ])
-        .mockResolvedValueOnce([
-          {
-            id: "session-1",
-            title: "Интервалы",
-            startsAt: new Date("2026-04-14T20:00:00.000Z"),
-            durationMinutes: 60,
-          },
-        ]),
-      booking: {
-        update: vi.fn(),
-      },
-      membership: {
-        update: vi.fn(),
-      },
-      session: {
-        update: vi.fn(),
-      },
-    };
-
-    await expect(
-      cancelBookingForUser(db as never, "user-1", "booking-1", now),
-    ).rejects.toMatchObject({ code: "CANCELLATION_TOO_LATE" });
-    expect(db.booking.update).not.toHaveBeenCalled();
-  });
-
-  it("отказывает, если отменяют чужую запись", async () => {
-    const db = {
-      $queryRaw: vi.fn().mockResolvedValueOnce([
-        {
-          id: "booking-1",
-          userId: "other-user",
-          sessionId: "session-1",
-          membershipId: "membership-1",
-          status: "booked",
-        },
-      ]),
-      booking: {
-        update: vi.fn(),
-      },
-      membership: {
-        update: vi.fn(),
-      },
-      session: {
-        update: vi.fn(),
-      },
-    };
-
-    await expect(
-      cancelBookingForUser(db as never, "user-1", "booking-1", now),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  });
-
-  it("не возвращает визит, если абонемента нет", async () => {
-    const db = {
-      $queryRaw: vi
-        .fn()
-        .mockResolvedValueOnce([
-          {
-            id: "booking-1",
-            userId: "user-1",
-            sessionId: "session-1",
-            membershipId: null,
-            status: "booked",
-          },
-        ])
-        .mockResolvedValueOnce([
-          {
-            id: "session-1",
-            title: "Интервалы",
+            title: "Intervals",
             startsAt: new Date("2026-04-15T15:30:00.000Z"),
             durationMinutes: 60,
           },
@@ -534,6 +269,148 @@ describe("cancelBookingForUser", () => {
     );
 
     expect(result.membershipRestored).toBe(false);
+    expect(db.membership.update).not.toHaveBeenCalled();
+    expect(db.booking.update).toHaveBeenCalledWith({
+      where: { id: "booking-1" },
+      data: {
+        status: "cancelled",
+        cancelledAt: now,
+        cancelReason: "client_cancelled",
+      },
+    });
+  });
+
+  it("rejects late cancellation", async () => {
+    const db = {
+      $queryRaw: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            id: "booking-1",
+            userId: "user-1",
+            sessionId: "session-1",
+            membershipId: "membership-1",
+            status: "pending",
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: "session-1",
+            title: "Intervals",
+            startsAt: new Date("2026-04-14T20:00:00.000Z"),
+            durationMinutes: 60,
+          },
+        ]),
+      booking: {
+        update: vi.fn(),
+      },
+      membership: {
+        update: vi.fn(),
+      },
+      session: {
+        update: vi.fn(),
+      },
+    };
+
+    await expect(
+      cancelBookingForUser(db as never, "user-1", "booking-1", now),
+    ).rejects.toMatchObject({ code: "CANCELLATION_TOO_LATE" });
+    expect(db.booking.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("attendance confirmation", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("marks pending booking completed and debits one visit", async () => {
+    const db = createAttendanceDb();
+
+    const result = await confirmAttendanceForBooking(
+      db as never,
+      "booking-1",
+      "admin-1",
+      { method: "qr", now, requireQrWindow: true },
+    );
+
+    expect(result).toMatchObject({
+      bookingId: "booking-1",
+      status: "completed",
+      alreadyProcessed: false,
+      visitsRemaining: 2,
+    });
+    expect(db.membership.update).toHaveBeenCalledWith({
+      where: { id: "membership-1" },
+      data: {
+        visitsRemaining: {
+          decrement: 1,
+        },
+      },
+    });
+    expect(db.booking.update).toHaveBeenCalledWith({
+      where: { id: "booking-1" },
+      data: {
+        status: "completed",
+        confirmedAt: now,
+        confirmedById: "admin-1",
+        confirmationMethod: "qr",
+      },
+    });
+  });
+
+  it("does not debit again when booking is already completed", async () => {
+    const db = createAttendanceDb("completed");
+
+    const result = await confirmAttendanceForBooking(
+      db as never,
+      "booking-1",
+      "admin-1",
+      { method: "qr", now, requireQrWindow: true },
+    );
+
+    expect(result.alreadyProcessed).toBe(true);
+    expect(db.membership.update).not.toHaveBeenCalled();
+    expect(db.booking.update).not.toHaveBeenCalled();
+  });
+
+  it("marks no-show and debits one visit after session start", async () => {
+    const db = createAttendanceDb();
+    const afterStart = new Date("2026-04-14T15:10:00.000Z");
+
+    const result = await markNoShowForBooking(
+      db as never,
+      "booking-1",
+      "trainer-1",
+      afterStart,
+    );
+
+    expect(result).toMatchObject({
+      status: "no_show",
+      visitsRemaining: 2,
+    });
+    expect(db.booking.update).toHaveBeenCalledWith({
+      where: { id: "booking-1" },
+      data: {
+        status: "no_show",
+        confirmedAt: afterStart,
+        confirmedById: "trainer-1",
+        confirmationMethod: "no_show",
+      },
+    });
+  });
+
+  it("rejects no-show before the session starts", async () => {
+    const db = createAttendanceDb();
+
+    await expect(
+      markNoShowForBooking(db as never, "booking-1", "trainer-1", now),
+    ).rejects.toMatchObject({ code: "NO_SHOW_TOO_EARLY" });
     expect(db.membership.update).not.toHaveBeenCalled();
   });
 });

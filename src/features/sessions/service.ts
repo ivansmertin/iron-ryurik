@@ -47,14 +47,26 @@ export async function cancelSessionWithDb(
     throw new Error("Занятие уже отменено");
   }
 
-  const bookedBookings = await db.booking.findMany({
+  const chargedBookings = await db.booking.count({
     where: {
       sessionId,
-      status: "booked",
+      status: {
+        in: ["completed", "no_show"],
+      },
+    },
+  });
+
+  if (chargedBookings > 0) {
+    throw new Error("Нельзя отменить занятие с уже подтвержденными посещениями или неявками");
+  }
+
+  const pendingBookings = await db.booking.findMany({
+    where: {
+      sessionId,
+      status: "pending",
     },
     select: {
       id: true,
-      membershipId: true,
       user: {
         select: {
           fullName: true,
@@ -73,11 +85,11 @@ export async function cancelSessionWithDb(
     },
   });
 
-  const cancelledBookings = bookedBookings.length
+  const cancelledBookings = pendingBookings.length
     ? await db.booking.updateMany({
         where: {
           sessionId,
-          status: "booked",
+          status: "pending",
         },
         data: {
           status: "cancelled",
@@ -85,32 +97,6 @@ export async function cancelSessionWithDb(
         },
       })
     : { count: 0 };
-
-  const membershipIncrements = new Map<string, number>();
-
-  for (const booking of bookedBookings) {
-    if (!booking.membershipId) {
-      continue;
-    }
-
-    membershipIncrements.set(
-      booking.membershipId,
-      (membershipIncrements.get(booking.membershipId) ?? 0) + 1,
-    );
-  }
-
-  await Promise.all(
-    Array.from(membershipIncrements.entries()).map(([membershipId, count]) =>
-      db.membership.update({
-        where: { id: membershipId },
-        data: {
-          visitsRemaining: {
-            increment: count,
-          },
-        },
-      }),
-    ),
-  );
 
   return {
     cancelledBookingsCount: cancelledBookings.count,
@@ -120,7 +106,7 @@ export async function cancelSessionWithDb(
       startsAt: session.startsAt,
       durationMinutes: session.durationMinutes,
     },
-    recipients: bookedBookings.map((booking) => booking.user),
+    recipients: pendingBookings.map((booking) => booking.user),
   };
 }
 

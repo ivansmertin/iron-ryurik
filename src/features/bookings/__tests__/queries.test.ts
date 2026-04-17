@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prismaMock = vi.hoisted(() => ({
   membership: {
     findFirst: vi.fn(),
+    findMany: vi.fn(),
   },
   session: {
     findMany: vi.fn(),
@@ -72,18 +73,34 @@ describe("client booking membership queries", () => {
       plan: {
         name: "8 visits",
       },
+      _count: {
+        bookings: 1,
+      },
     };
 
     prismaMock.membership.findFirst.mockResolvedValue(membership);
 
+    const expectedMembership = {
+      id: "membership-1",
+      visitsRemaining: 2,
+      visitsTotal: 8,
+      reservedSessions: 1,
+      availableSessions: 1,
+      endsAt: new Date("2026-05-14T12:00:00.000Z"),
+      plan: {
+        name: "8 visits",
+      },
+    };
+
     await expect(getClientMembershipSnapshot("user-1", now)).resolves.toEqual({
-      activeMembership: membership,
-      bookableMembership: membership,
+      activeMembership: expectedMembership,
+      bookableMembership: expectedMembership,
     });
   });
 
   it("does not expose a bookable membership before its start date", async () => {
     prismaMock.membership.findFirst.mockResolvedValue(null);
+    prismaMock.membership.findMany.mockResolvedValue([]);
     prismaMock.session.findMany.mockResolvedValue([]);
 
     await expect(
@@ -93,7 +110,7 @@ describe("client booking membership queries", () => {
       sessions: [],
     });
 
-    expect(prismaMock.membership.findFirst).toHaveBeenCalledWith(
+    expect(prismaMock.membership.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           userId: "user-1",
@@ -103,9 +120,6 @@ describe("client booking membership queries", () => {
           },
           endsAt: {
             gte: now,
-          },
-          visitsRemaining: {
-            gt: 0,
           },
         }),
       }),
