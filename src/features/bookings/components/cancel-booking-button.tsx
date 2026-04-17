@@ -20,10 +20,12 @@ import { formatMoscowDateShort, formatMoscowTime } from "@/lib/formatters";
 export function CancelBookingButton({
   bookingId,
   sessionTitle,
+  cancellationDeadlineHours,
   buttonLabel = "Отменить запись",
 }: {
   bookingId: string;
   sessionTitle: string | null;
+  cancellationDeadlineHours: number;
   buttonLabel?: string;
 }) {
   const [state, formAction, pending] = useActionState(
@@ -59,8 +61,8 @@ export function CancelBookingButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Отменить запись?</AlertDialogTitle>
           <AlertDialogDescription>
-            Отмена возможна только не позже чем за 12 часов до начала. Занятие
-            ещё не списано, поэтому отмена просто освободит резерв.
+            Отмена возможна только не позже чем за {cancellationDeadlineHours} ч до начала.
+            Занятие ещё не списано, поэтому отмена просто освободит резерв.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <form action={formAction}>

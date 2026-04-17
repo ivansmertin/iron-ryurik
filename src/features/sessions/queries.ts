@@ -65,10 +65,19 @@ export async function listSessions({
         select: {
           id: true,
           title: true,
+          origin: true,
+          autoSlotKey: true,
           startsAt: true,
           durationMinutes: true,
           capacity: true,
+          cancellationDeadlineHours: true,
           status: true,
+          trainer: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
           bookings: {
             where: {
               status: {
@@ -110,9 +119,13 @@ export async function getSessionById(id: string) {
           id: true,
           title: true,
           description: true,
+          trainerId: true,
+          origin: true,
+          autoSlotKey: true,
           startsAt: true,
           durationMinutes: true,
           capacity: true,
+          cancellationDeadlineHours: true,
           status: true,
           version: true,
           bookings: {
@@ -129,5 +142,28 @@ export async function getSessionById(id: string) {
       }),
     1,
     "sessions.getSessionById",
+  );
+}
+
+export async function listSessionTrainers() {
+  return withPrismaReadRetry(
+    () =>
+      prisma.user.findMany({
+        where: {
+          role: {
+            in: ["trainer", "admin"],
+          },
+          deletedAt: null,
+        },
+        orderBy: {
+          fullName: "asc",
+        },
+        select: {
+          id: true,
+          fullName: true,
+        },
+      }),
+    1,
+    "sessions.listSessionTrainers",
   );
 }

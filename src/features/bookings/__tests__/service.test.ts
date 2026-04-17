@@ -86,6 +86,9 @@ function createAttendanceDb(status = "pending") {
     membership: {
       update: vi.fn().mockResolvedValue({ id: "membership-1" }),
     },
+    workoutLog: {
+      upsert: vi.fn().mockResolvedValue({ id: "workout-log-1" }),
+    },
     session: {
       update: vi.fn(),
     },
@@ -248,6 +251,7 @@ describe("cancelBookingForUser", () => {
             title: "Intervals",
             startsAt: new Date("2026-04-15T15:30:00.000Z"),
             durationMinutes: 60,
+            cancellationDeadlineHours: 12,
           },
         ]),
       booking: {
@@ -299,6 +303,7 @@ describe("cancelBookingForUser", () => {
             title: "Intervals",
             startsAt: new Date("2026-04-14T20:00:00.000Z"),
             durationMinutes: 60,
+            cancellationDeadlineHours: 12,
           },
         ]),
       booking: {
@@ -362,6 +367,21 @@ describe("attendance confirmation", () => {
         confirmationMethod: "qr",
       },
     });
+    expect(db.workoutLog.upsert).toHaveBeenCalledWith({
+      where: {
+        userId_sessionId: {
+          userId: "user-1",
+          sessionId: "session-1",
+        },
+      },
+      update: {},
+      create: {
+        userId: "user-1",
+        sessionId: "session-1",
+        performedAt: new Date("2026-04-14T15:00:00.000Z"),
+        durationMin: 60,
+      },
+    });
   });
 
   it("does not debit again when booking is already completed", async () => {
@@ -377,6 +397,7 @@ describe("attendance confirmation", () => {
     expect(result.alreadyProcessed).toBe(true);
     expect(db.membership.update).not.toHaveBeenCalled();
     expect(db.booking.update).not.toHaveBeenCalled();
+    expect(db.workoutLog.upsert).toHaveBeenCalledTimes(1);
   });
 
   it("marks no-show and debits one visit after session start", async () => {

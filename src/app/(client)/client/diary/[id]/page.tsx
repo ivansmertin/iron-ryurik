@@ -36,7 +36,7 @@ export default async function ClientWorkoutDetailsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Тренировка"
+        title={workoutLog.session?.title ?? "Тренировка"}
         description={formatMoscowDateTime(workoutLog.performedAt)}
         actions={
           <Button variant="outline" nativeButton={false} render={<Link href="/client/diary" />}>
@@ -67,6 +67,7 @@ export default async function ClientWorkoutDetailsPage({
               notes: workoutLog.notes ?? "",
               exerciseIds: workoutLog.exercises.map((exerciseLog) => exerciseLog.exercise.id),
             }}
+            lockSessionFields={Boolean(workoutLog.sessionId)}
           />
         </CardContent>
       </Card>

@@ -36,7 +36,7 @@ export default async function TrainerClientWorkoutDetailsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Тренировка клиента"
+        title={workoutLog.session?.title ?? "Тренировка клиента"}
         description={formatMoscowDateTime(workoutLog.performedAt)}
         actions={
           <Button
@@ -71,6 +71,7 @@ export default async function TrainerClientWorkoutDetailsPage({
               notes: workoutLog.notes ?? "",
               exerciseIds: workoutLog.exercises.map((exerciseLog) => exerciseLog.exercise.id),
             }}
+            lockSessionFields={Boolean(workoutLog.sessionId)}
           />
         </CardContent>
       </Card>

@@ -1,6 +1,4 @@
 import { Prisma, type BookingConfirmationMethod } from "@prisma/client";
-import { CANCELLATION_DEADLINE_HOURS } from "./constants";
-
 export const activeBookingStatuses = ["pending", "completed", "no_show"] as const;
 
 const QR_CONFIRMATION_BEFORE_START_HOURS = 3;
@@ -37,7 +35,7 @@ export const bookingErrorMessages: Record<BookingErrorCode, string> = {
   BOOKING_ALREADY_CONFIRMED: "Посещение уже подтверждено",
   BOOKING_CANCELLED: "Запись отменена",
   FORBIDDEN: "Нельзя отменить чужую запись",
-  CANCELLATION_TOO_LATE: `Отмена невозможна менее чем за ${CANCELLATION_DEADLINE_HOURS} часов до начала`,
+  CANCELLATION_TOO_LATE: "Отмена невозможна слишком близко к началу занятия",
   CONFIRMATION_WINDOW_CLOSED: "QR-код можно подтвердить только рядом со временем занятия",
   NO_SHOW_TOO_EARLY: "Неявку можно отметить только после начала занятия",
   INVALID_QR_TOKEN: "QR-код недействителен или устарел",
@@ -57,7 +55,7 @@ export class BookingServiceError extends Error {
 
 export type BookingMutationClient = Pick<
   Prisma.TransactionClient,
-  "session" | "booking" | "membership" | "$queryRaw"
+  "session" | "booking" | "membership" | "workoutLog" | "$queryRaw"
 >;
 
 type LockedSessionRow = {
@@ -180,12 +178,20 @@ async function lockSession(
 async function lockSessionForCancellation(
   db: BookingMutationClient,
   sessionId: string,
-): Promise<Pick<LockedSessionRow, "id" | "title" | "startsAt" | "durationMinutes">> {
+): Promise<
+  Pick<LockedSessionRow, "id" | "title" | "startsAt" | "durationMinutes"> & {
+    cancellationDeadlineHours: number;
+  }
+> {
   const rows = await db.$queryRaw<
-    Pick<LockedSessionRow, "id" | "title" | "startsAt" | "durationMinutes">[]
+    Array<
+      Pick<LockedSessionRow, "id" | "title" | "startsAt" | "durationMinutes"> & {
+        cancellationDeadlineHours: number;
+      }
+    >
   >(
     Prisma.sql`
-      SELECT id, title, "startsAt", "durationMinutes"
+      SELECT id, title, "startsAt", "durationMinutes", "cancellationDeadlineHours"
       FROM "Session"
       WHERE id = ${sessionId}
       FOR UPDATE
@@ -350,6 +356,27 @@ async function debitMembershipForAttendance(
   return membership.visitsRemaining - 1;
 }
 
+async function ensureWorkoutLogForAttendance(
+  db: BookingMutationClient,
+  booking: LockedAttendanceBookingRow,
+) {
+  await db.workoutLog.upsert({
+    where: {
+      userId_sessionId: {
+        userId: booking.userId,
+        sessionId: booking.sessionId,
+      },
+    },
+    update: {},
+    create: {
+      userId: booking.userId,
+      sessionId: booking.sessionId,
+      performedAt: booking.startsAt,
+      durationMin: booking.durationMinutes,
+    },
+  });
+}
+
 export async function bookSessionForUser(
   db: BookingMutationClient,
   userId: string,
@@ -464,8 +491,11 @@ export async function cancelBookingForUser(
   const hoursUntilStart =
     (session.startsAt.getTime() - now.getTime()) / (60 * 60 * 1000);
 
-  if (hoursUntilStart < CANCELLATION_DEADLINE_HOURS) {
-    raise("CANCELLATION_TOO_LATE");
+  if (hoursUntilStart < session.cancellationDeadlineHours) {
+    throw new BookingServiceError(
+      "CANCELLATION_TOO_LATE",
+      `Отмена невозможна менее чем за ${session.cancellationDeadlineHours} ч до начала`,
+    );
   }
 
   const cancelledAt = now;
@@ -505,6 +535,7 @@ export async function confirmAttendanceForBooking(
   }
 
   if (booking.status === "completed") {
+    await ensureWorkoutLogForAttendance(db, booking);
     return buildAttendanceResult(booking, "completed", true);
   }
 
@@ -547,6 +578,8 @@ export async function confirmAttendanceForBooking(
       confirmationMethod: options.method,
     },
   });
+
+  await ensureWorkoutLogForAttendance(db, booking);
 
   return buildAttendanceResult(booking, "completed", false, visitsRemaining);
 }

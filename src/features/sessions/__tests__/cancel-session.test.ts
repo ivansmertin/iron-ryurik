@@ -89,6 +89,7 @@ describe("cancelSessionWithDb", () => {
       data: {
         status: "cancelled",
         cancelledAt: expect.any(Date),
+        cancelReason: "session_cancelled",
       },
     });
     expect(db.membership.update).not.toHaveBeenCalled();

@@ -94,6 +94,7 @@ export async function cancelSessionWithDb(
         data: {
           status: "cancelled",
           cancelledAt,
+          cancelReason: "session_cancelled",
         },
       })
     : { count: 0 };

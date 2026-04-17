@@ -19,6 +19,7 @@ type WorkoutLogFormProps = {
   mode: "create" | "edit";
   exercises: Array<{ id: string; name: string }>;
   defaultValues: WorkoutLogFormValues;
+  lockSessionFields?: boolean;
 } & (
   | {
       mode: "create";
@@ -43,6 +44,7 @@ export function WorkoutLogForm({
   action,
   exercises,
   defaultValues,
+  lockSessionFields = false,
 }: WorkoutLogFormProps) {
   const [, startTransition] = useTransition();
   const [state, formAction, pending] = useActionState(action, undefined);
@@ -82,9 +84,15 @@ export function WorkoutLogForm({
           <Input
             id="performedAt"
             type="datetime-local"
+            readOnly={lockSessionFields}
             aria-invalid={Boolean(fieldError("performedAt"))}
             {...form.register("performedAt")}
           />
+          {lockSessionFields ? (
+            <p className="text-muted-foreground text-xs">
+              Дата берется из подтвержденного посещения.
+            </p>
+          ) : null}
           <FieldError message={fieldError("performedAt")} />
         </div>
 
@@ -95,9 +103,15 @@ export function WorkoutLogForm({
             type="number"
             min={1}
             max={360}
+            readOnly={lockSessionFields}
             aria-invalid={Boolean(fieldError("durationMin"))}
             {...form.register("durationMin")}
           />
+          {lockSessionFields ? (
+            <p className="text-muted-foreground text-xs">
+              Длительность берется из расписания занятия.
+            </p>
+          ) : null}
           <FieldError message={fieldError("durationMin")} />
         </div>
 

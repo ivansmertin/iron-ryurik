@@ -83,7 +83,6 @@ function getTrainerSlotWhereClause(
   switch (tab) {
     case "past":
       return {
-        type: "personal",
         trainerId,
         status: {
           not: "cancelled",
@@ -94,14 +93,12 @@ function getTrainerSlotWhereClause(
       };
     case "cancelled":
       return {
-        type: "personal",
         trainerId,
         status: "cancelled",
       };
     case "upcoming":
     default:
       return {
-        type: "personal",
         trainerId,
         status: "scheduled",
         startsAt: {
@@ -165,7 +162,6 @@ export async function getTrainerDashboardStats(
       ] = await Promise.all([
         prisma.session.count({
           where: {
-            type: "personal",
             trainerId,
             status: "scheduled",
             startsAt: {
@@ -176,7 +172,6 @@ export async function getTrainerDashboardStats(
         }),
         prisma.session.count({
           where: {
-            type: "personal",
             trainerId,
             status: "scheduled",
             startsAt: {
@@ -203,7 +198,6 @@ export async function getTrainerDashboardStats(
         }),
         prisma.session.findFirst({
           where: {
-            type: "personal",
             trainerId,
             status: "scheduled",
             startsAt: {
@@ -288,7 +282,6 @@ export async function getTrainerSlotById(trainerId: string, slotId: string) {
       prisma.session.findFirst({
         where: {
           id: slotId,
-          type: "personal",
           trainerId,
         },
         select: {

@@ -8,6 +8,7 @@ import {
   getClientScheduleData,
   type ClientSchedulePeriod,
 } from "@/features/bookings/queries";
+import { reconcileFreeSlots } from "@/features/gym-schedule/service";
 import { requireUser } from "@/features/auth/get-user";
 import { getSearchParamValue } from "@/lib/search-params";
 import { formatMoscowDayHeading, formatMoscowTime } from "@/lib/formatters";
@@ -83,6 +84,10 @@ export default async function ClientSchedulePage({
   const resolvedSearchParams = await searchParams;
   const period = getPeriodFromSearchParam(getSearchParamValue(resolvedSearchParams.period));
   const now = new Date();
+
+  await reconcileFreeSlots(now).catch((error) => {
+    console.error("[client-schedule] reconcileFreeSlots failed", error);
+  });
 
   let scheduleData: Awaited<ReturnType<typeof getClientScheduleData>> | null = null;
 

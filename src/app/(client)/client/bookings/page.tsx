@@ -7,7 +7,7 @@ import { BookingQRCode } from "@/features/bookings/components/booking-qr-code";
 import { CancelBookingButton } from "@/features/bookings/components/cancel-booking-button";
 import { getClientBookings } from "@/features/bookings/queries";
 import { requireUser } from "@/features/auth/get-user";
-import { formatMoscowDateShort, formatMoscowRelativeDateTime, formatMoscowTime } from "@/lib/formatters";
+import { formatBookingCancelReason, formatMoscowDateShort, formatMoscowRelativeDateTime, formatMoscowTime } from "@/lib/formatters";
 import { getSearchParamValue, parsePositivePage } from "@/lib/search-params";
 
 const PAGE_SIZE = 20;
@@ -128,7 +128,7 @@ export default async function ClientBookingsPage({
                 </p>
                 {booking.status === "cancelled" && booking.cancelReason ? (
                   <p className="text-muted-foreground text-xs">
-                    Причина: {booking.cancelReason}
+                    Причина: {formatBookingCancelReason(booking.cancelReason)}
                   </p>
                 ) : null}
                 {tab === "upcoming" ? (
@@ -137,6 +137,7 @@ export default async function ClientBookingsPage({
                     <CancelBookingButton
                       bookingId={booking.id}
                       sessionTitle={booking.session.title}
+                      cancellationDeadlineHours={booking.session.cancellationDeadlineHours}
                     />
                   </div>
                 ) : null}

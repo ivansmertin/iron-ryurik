@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/admin/page-header";
 import { AdminOccupancyCard } from "@/features/gym-state/components/admin-occupancy-card";
 import { getGymOccupancy } from "@/features/gym-state/service";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -107,6 +109,20 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <AdminOccupancyCard initialOccupancy={gymOccupancy} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Сканер QR</CardTitle>
+          <CardDescription>
+            Подтверждение посещений клиентов и списание занятий по QR-коду.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button nativeButton={false} render={<Link href="/admin/scan" />}>
+            Сканировать QR
+          </Button>
+        </CardContent>
+      </Card>
 
       {cards ? (
         <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">

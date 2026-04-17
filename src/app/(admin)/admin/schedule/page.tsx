@@ -17,6 +17,7 @@ import {
 import { formatMoscowDateTime } from "@/lib/formatters";
 import { getSearchParamValue, parsePositivePage } from "@/lib/search-params";
 import { CancelSessionButton } from "@/features/sessions/components/cancel-session-button";
+import { reconcileFreeSlots } from "@/features/gym-schedule/service";
 import {
   listSessions,
   sessionListTabs,
@@ -48,6 +49,11 @@ export default async function SchedulePage({
   const tab = getTabFromSearchParam(getSearchParamValue(resolvedSearchParams.tab));
   const page = parsePositivePage(resolvedSearchParams.page);
   const toastKey = getSearchParamValue(resolvedSearchParams.toast);
+
+  await reconcileFreeSlots().catch((error) => {
+    console.error("[admin-schedule] reconcileFreeSlots failed", error);
+  });
+
   const sessions = await listSessions({
     tab,
     page,
@@ -62,9 +68,18 @@ export default async function SchedulePage({
         title="Расписание"
         description="Групповые занятия зала"
         actions={
-          <Button nativeButton={false} render={<Link href="/admin/schedule/new" />}>
-            Создать сессию
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href="/admin/schedule/settings" />}
+            >
+              Рабочее время
+            </Button>
+            <Button nativeButton={false} render={<Link href="/admin/schedule/new" />}>
+              Создать сессию
+            </Button>
+          </div>
         }
       />
 

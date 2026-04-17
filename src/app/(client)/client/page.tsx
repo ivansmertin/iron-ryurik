@@ -6,6 +6,8 @@ import { CancelBookingButton } from "@/features/bookings/components/cancel-booki
 import { BookingQRCode } from "@/features/bookings/components/booking-qr-code";
 import { getClientDashboardData } from "@/features/bookings/queries";
 import { requireUser } from "@/features/auth/get-user";
+import { DiaryReminderCard } from "@/features/workouts/components/diary-reminder-card";
+import { listClientWorkoutLogsWithoutNotes } from "@/features/workouts/queries";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -55,12 +57,14 @@ export default async function ClientDashboard() {
   const now = new Date();
 
   let dashboardData: Awaited<ReturnType<typeof getClientDashboardData>> | null = null;
+  let diaryReminders: Awaited<ReturnType<typeof listClientWorkoutLogsWithoutNotes>> = [];
   let gymOccupancy = 0;
 
   try {
-    [dashboardData, gymOccupancy] = await Promise.all([
+    [dashboardData, gymOccupancy, diaryReminders] = await Promise.all([
       getClientDashboardData(user.id, now),
       getGymOccupancy(),
+      listClientWorkoutLogsWithoutNotes(user.id),
     ]);
   } catch (error) {
     console.error("[client-dashboard] failed to load dashboard", error);
@@ -100,6 +104,8 @@ export default async function ClientDashboard() {
       />
 
       <ClientOccupancyCard occupancy={gymOccupancy} />
+
+      <DiaryReminderCard items={diaryReminders} />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
@@ -171,6 +177,7 @@ export default async function ClientDashboard() {
               <CancelBookingButton
                 bookingId={nextBooking.id}
                 sessionTitle={nextBooking.session.title}
+                cancellationDeadlineHours={nextBooking.session.cancellationDeadlineHours}
                 buttonLabel="Отменить запись"
               />
             ) : (

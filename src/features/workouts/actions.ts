@@ -91,8 +91,12 @@ async function upsertWorkoutLog(
         await tx.workoutLog.update({
           where: { id: workoutLogId },
           data: {
-            performedAt: toDateFromDateTimeLocal(parsed.data.performedAt),
-            durationMin: parsed.data.durationMin ?? null,
+            performedAt: existingLog.sessionId
+              ? existingLog.performedAt
+              : toDateFromDateTimeLocal(parsed.data.performedAt),
+            durationMin: existingLog.sessionId
+              ? existingLog.durationMin
+              : parsed.data.durationMin ?? null,
             rpe: parsed.data.rpe ?? null,
             notes: parsed.data.notes || null,
           },

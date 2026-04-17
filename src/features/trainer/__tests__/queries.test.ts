@@ -102,7 +102,6 @@ describe("trainer queries", () => {
     expect(prismaMock.session.findFirst).toHaveBeenCalledWith({
       where: {
         id: "slot-2",
-        type: "personal",
         trainerId: "trainer-1",
       },
       select: {

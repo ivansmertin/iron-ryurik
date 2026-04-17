@@ -63,12 +63,14 @@ describe("trainer actions", () => {
     prismaMock.user.findFirst.mockResolvedValue({ id: "client-1" });
     prismaMock.user.update.mockResolvedValue({ id: "client-1" });
     prismaMock.$transaction.mockImplementation(
-      async (callback: (tx: never) => unknown) => callback({} as never),
+      async (callback: (tx: never) => unknown) => callback(prismaMock as never),
     );
     cancelSessionWithDbMock.mockResolvedValue({ cancelledBookingsCount: 2 });
   });
 
   it("создаёт личный слот тренера с фиксированной вместимостью", async () => {
+    prismaMock.session.findFirst.mockResolvedValueOnce(null);
+
     const formData = new FormData();
     formData.set("title", "");
     formData.set("description", "");
@@ -81,6 +83,7 @@ describe("trainer actions", () => {
     expect(prismaMock.session.create).toHaveBeenCalledWith({
       data: {
         type: "personal",
+        origin: "manual",
         trainerId: "trainer-1",
         title: null,
         description: null,
@@ -107,7 +110,6 @@ describe("trainer actions", () => {
     expect(prismaMock.session.findFirst).toHaveBeenCalledWith({
       where: {
         id: "slot-1",
-        type: "personal",
         trainerId: "trainer-1",
       },
       select: {
@@ -157,7 +159,7 @@ describe("trainer actions", () => {
     await expect(cancelTrainerSlot("slot-1")).rejects.toThrow("NEXT_REDIRECT");
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
-    expect(cancelSessionWithDbMock).toHaveBeenCalledWith({}, "slot-1");
+    expect(cancelSessionWithDbMock).toHaveBeenCalledWith(prismaMock, "slot-1");
     expect(revalidatePathMock).toHaveBeenCalledWith("/trainer");
     expect(revalidatePathMock).toHaveBeenCalledWith("/trainer/slots");
     expect(revalidatePathMock).toHaveBeenCalledWith("/trainer/slots/slot-1");

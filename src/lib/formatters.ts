@@ -78,6 +78,17 @@ export const bookingStatusLabels: Record<BookingStatus, string> = {
   no_show: "Неявка",
 };
 
+export function formatBookingCancelReason(reason: string | null | undefined) {
+  switch (reason) {
+    case "client_cancelled":
+      return "вы отменили запись";
+    case "session_cancelled":
+      return "занятие отменено залом";
+    default:
+      return reason?.trim() || "причина не указана";
+  }
+}
+
 export function formatMoney(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === "") {
     return "—";

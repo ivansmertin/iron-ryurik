@@ -17,6 +17,8 @@ import {
 import { cancelSessionWithDb } from "@/features/sessions/service";
 import { trainerSlotSchema } from "./schemas";
 
+const ACTIVE_BOOKING_STATUSES = ["pending", "completed", "no_show"] as const;
+
 function buildTrainerSlotsRedirect(toast: string) {
   return `/trainer/slots?toast=${encodeURIComponent(toast)}`;
 }
@@ -60,16 +62,68 @@ export async function createTrainerSlot(
   const startedAt = Date.now();
 
   try {
-    await prisma.session.create({
-      data: {
-        type: "personal",
-        trainerId: user.id,
-        title: normalizeOptionalText(parsed.data.title),
-        description: normalizeOptionalText(parsed.data.description),
-        startsAt,
-        durationMinutes: parsed.data.durationMinutes,
-        capacity: 1,
-      },
+    await prisma.$transaction(async (tx) => {
+      const existingFreeSlot = await tx.session.findFirst({
+        where: {
+          type: "group",
+          origin: "auto_free",
+          status: "scheduled",
+          startsAt,
+        },
+        select: {
+          id: true,
+          capacity: true,
+          durationMinutes: true,
+          bookings: {
+            where: {
+              status: {
+                in: [...ACTIVE_BOOKING_STATUSES],
+              },
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (existingFreeSlot) {
+        const activeBookingsCount = existingFreeSlot.bookings.length;
+
+        await tx.session.update({
+          where: {
+            id: existingFreeSlot.id,
+          },
+          data: {
+            origin: "manual",
+            autoSlotKey: null,
+            trainerId: user.id,
+            title: normalizeOptionalText(parsed.data.title),
+            description: normalizeOptionalText(parsed.data.description),
+            durationMinutes: activeBookingsCount
+              ? existingFreeSlot.durationMinutes
+              : parsed.data.durationMinutes,
+            capacity: Math.max(existingFreeSlot.capacity, activeBookingsCount),
+            version: {
+              increment: 1,
+            },
+          },
+        });
+        return;
+      }
+
+      await tx.session.create({
+        data: {
+          type: "personal",
+          origin: "manual",
+          trainerId: user.id,
+          title: normalizeOptionalText(parsed.data.title),
+          description: normalizeOptionalText(parsed.data.description),
+          startsAt,
+          durationMinutes: parsed.data.durationMinutes,
+          capacity: 1,
+        },
+      });
     });
   } catch (error) {
     logPrismaError("trainer.createTrainerSlot", error, startedAt);
@@ -100,7 +154,6 @@ export async function updateTrainerSlot(
     const existingSlot = await prisma.session.findFirst({
       where: {
         id: slotId,
-        type: "personal",
         trainerId: user.id,
       },
       select: {
@@ -187,7 +240,6 @@ export async function cancelTrainerSlot(
     const existingSlot = await prisma.session.findFirst({
       where: {
         id: slotId,
-        type: "personal",
         trainerId: user.id,
       },
       select: {
