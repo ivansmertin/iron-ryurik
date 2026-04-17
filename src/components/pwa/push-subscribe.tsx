@@ -74,7 +74,7 @@ export function PushSubscribeToggle() {
       // Отправляем на сервер
       const res = await savePushSubscription(JSON.parse(JSON.stringify(subscription)), navigator.userAgent);
       
-      if (res.error) {
+      if ("error" in res) {
         toast.error(res.error);
       } else {
         setIsSubscribed(true);

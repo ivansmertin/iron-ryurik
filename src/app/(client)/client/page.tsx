@@ -3,6 +3,7 @@ import { ClientOccupancyCard } from "@/features/gym-state/components/client-occu
 import { getGymOccupancy } from "@/features/gym-state/service";
 import { PageHeader } from "@/components/admin/page-header";
 import { CancelBookingButton } from "@/features/bookings/components/cancel-booking-button";
+import { BookingQRCode } from "@/features/bookings/components/booking-qr-code";
 import { getClientDashboardData } from "@/features/bookings/queries";
 import { requireUser } from "@/features/auth/get-user";
 import { Button } from "@/components/ui/button";
@@ -116,6 +117,10 @@ export default async function ClientDashboard() {
                   {activeMembership.visitsTotal}
                 </p>
                 <p className="text-muted-foreground text-sm">
+                  Доступно для записи: {activeMembership.availableSessions},
+                  заморожено: {activeMembership.reservedSessions}
+                </p>
+                <p className="text-muted-foreground text-sm">
                   Действует до {formatMoscowDateShort(activeMembership.endsAt)}
                 </p>
                 <MembershipProgress
@@ -153,6 +158,7 @@ export default async function ClientDashboard() {
                 <p className="text-muted-foreground text-sm">
                   Длительность: {nextBooking.session.durationMinutes} мин
                 </p>
+                <BookingQRCode bookingId={nextBooking.id} />
               </>
             ) : (
               <p className="text-muted-foreground text-sm">

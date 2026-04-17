@@ -12,6 +12,7 @@ describe("navigation", () => {
     expect(trainerLinks.map((l) => l.href)).toEqual([
       "/trainer",
       "/trainer/slots",
+      "/trainer/scan",
       "/trainer/clients",
     ]);
   });

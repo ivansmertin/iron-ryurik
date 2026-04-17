@@ -59,8 +59,8 @@ export function CancelBookingButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Отменить запись?</AlertDialogTitle>
           <AlertDialogDescription>
-            Отмена возможна только не позже чем за 12 часов до начала. Если
-            абонемент ещё активен, один визит вернётся.
+            Отмена возможна только не позже чем за 12 часов до начала. Занятие
+            ещё не списано, поэтому отмена просто освободит резерв.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <form action={formAction}>

@@ -15,6 +15,7 @@ describe("cancelSessionWithDb", () => {
         update: vi.fn().mockResolvedValue({ id: "session-1" }),
       },
       booking: {
+        count: vi.fn().mockResolvedValue(0),
         findMany: vi.fn().mockResolvedValue([
           {
             id: "booking-1",
@@ -83,29 +84,13 @@ describe("cancelSessionWithDb", () => {
     expect(db.booking.updateMany).toHaveBeenCalledWith({
       where: {
         sessionId: "session-1",
-        status: "booked",
+        status: "pending",
       },
       data: {
         status: "cancelled",
         cancelledAt: expect.any(Date),
       },
     });
-    expect(db.membership.update).toHaveBeenCalledTimes(2);
-    expect(db.membership.update).toHaveBeenNthCalledWith(1, {
-      where: { id: "membership-1" },
-      data: {
-        visitsRemaining: {
-          increment: 1,
-        },
-      },
-    });
-    expect(db.membership.update).toHaveBeenNthCalledWith(2, {
-      where: { id: "membership-2" },
-      data: {
-        visitsRemaining: {
-          increment: 1,
-        },
-      },
-    });
+    expect(db.membership.update).not.toHaveBeenCalled();
   });
 });

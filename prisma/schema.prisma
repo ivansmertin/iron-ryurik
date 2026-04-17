@@ -149,9 +149,15 @@ model Session {
 }
 
 enum BookingStatus {
-  booked
+  pending
   cancelled
-  attended
+  completed
+  no_show
+}
+
+enum BookingConfirmationMethod {
+  qr
+  manual
   no_show
 }
 
@@ -160,10 +166,13 @@ model Booking {
   userId        String        @db.Uuid
   sessionId     String        @db.Uuid
   membershipId  String?       @db.Uuid  // какой абонемент списали
-  status        BookingStatus @default(booked)
-  bookedAt      DateTime      @default(now())
-  cancelledAt   DateTime?
-  cancelReason  String?
+  status             BookingStatus              @default(pending)
+  bookedAt           DateTime                   @default(now())
+  cancelledAt        DateTime?
+  cancelReason       String?
+  confirmedAt        DateTime?
+  confirmedById      String?                    @db.Uuid
+  confirmationMethod BookingConfirmationMethod?
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   session    Session     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
@@ -173,6 +182,7 @@ model Booking {
   @@unique([userId, sessionId])
   @@index([sessionId, status])
   @@index([userId, status])
+  @@index([membershipId, status])
 }
 
 // ============ ТРЕНИРОВКИ И ПРОГРАММЫ ============

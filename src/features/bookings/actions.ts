@@ -2,7 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/features/auth/get-user";
+import { requireUser, requireUserRole } from "@/features/auth/get-user";
 import {
   sendBestEffortEmails,
   sendBookingCancellationEmail,
@@ -14,10 +14,18 @@ import {
   bookingErrorMessages,
   bookSessionForUser,
   cancelBookingForUser,
+  confirmAttendanceForBooking,
+  markNoShowForBooking,
+  type AttendanceResult,
   type BookingErrorCode,
   type BookSessionResult,
   type CancelBookingResult,
 } from "./service";
+import {
+  BOOKING_QR_TOKEN_TTL_MS,
+  createBookingQrToken,
+  verifyBookingQrToken,
+} from "./qr";
 
 export type BookingActionSuccess = {
   ok: true;
@@ -36,14 +44,50 @@ export type BookingActionError = {
 
 export type BookingActionState = BookingActionSuccess | BookingActionError | undefined;
 
-function toSuccessState(result: BookSessionResult | CancelBookingResult): BookingActionSuccess {
+export type BookingQrTokenActionState =
+  | {
+      ok: true;
+      token: string;
+      expiresAt: string;
+    }
+  | BookingActionError;
+
+export type AttendanceActionSuccess = BookingActionSuccess & {
+  clientFullName: string;
+  clientEmail: string;
+  status: "completed" | "no_show";
+  alreadyProcessed: boolean;
+  visitsRemaining: number | null;
+};
+
+export type AttendanceActionState =
+  | AttendanceActionSuccess
+  | BookingActionError
+  | undefined;
+
+function toSuccessState(
+  result: BookSessionResult | CancelBookingResult,
+): BookingActionSuccess {
   return {
     ok: true,
     bookingId: result.bookingId,
     sessionId: result.sessionId,
     sessionTitle: result.sessionTitle,
     startsAt: result.startsAt.toISOString(),
-    durationMinutes: "durationMinutes" in result ? result.durationMinutes : 0,
+    durationMinutes: result.durationMinutes,
+  };
+}
+
+function toAttendanceSuccessState(
+  result: AttendanceResult,
+): AttendanceActionSuccess {
+  return {
+    ...toSuccessState(result),
+    clientFullName: result.clientFullName,
+    clientEmail: result.clientEmail,
+    status: result.status,
+    alreadyProcessed: result.alreadyProcessed,
+    visitsRemaining: result.visitsRemaining,
   };
 }
 
@@ -63,6 +107,17 @@ function toErrorState(error: unknown): BookingActionError {
   };
 }
 
+function revalidateBookingViews() {
+  revalidatePath("/client");
+  revalidatePath("/client/schedule");
+  revalidatePath("/client/bookings");
+  revalidatePath("/admin");
+  revalidatePath("/admin/scan");
+  revalidatePath("/admin/schedule");
+  revalidatePath("/trainer");
+  revalidatePath("/trainer/scan");
+}
+
 export async function bookSession(
   sessionId: string,
   prevState: BookingActionState,
@@ -77,14 +132,11 @@ export async function bookSession(
     const result = await prisma.$transaction(
       (tx) => bookSessionForUser(tx, user.id, sessionId),
       {
-        // FOR UPDATE on the session row is the actual race-condition guard.
         isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
       },
     );
 
-    revalidatePath("/client");
-    revalidatePath("/client/schedule");
-    revalidatePath("/client/bookings");
+    revalidateBookingViews();
 
     await sendBestEffortEmails(
       [
@@ -123,9 +175,7 @@ export async function cancelBooking(
       },
     );
 
-    revalidatePath("/client");
-    revalidatePath("/client/schedule");
-    revalidatePath("/client/bookings");
+    revalidateBookingViews();
 
     await sendBestEffortEmails(
       [
@@ -142,6 +192,142 @@ export async function cancelBooking(
     );
 
     return toSuccessState(result);
+  } catch (error) {
+    return toErrorState(error);
+  }
+}
+
+export async function getBookingQrToken(
+  bookingId: string,
+): Promise<BookingQrTokenActionState> {
+  const user = await requireUser("client");
+
+  try {
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: bookingId,
+        userId: user.id,
+        status: "pending",
+      },
+      select: {
+        id: true,
+        userId: true,
+        sessionId: true,
+        session: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!booking || booking.session.status === "cancelled") {
+      throw new BookingServiceError("BOOKING_NOT_AVAILABLE");
+    }
+
+    const now = new Date();
+
+    return {
+      ok: true,
+      token: createBookingQrToken({
+        bookingId: booking.id,
+        userId: booking.userId,
+        sessionId: booking.sessionId,
+        now,
+      }),
+      expiresAt: new Date(now.getTime() + BOOKING_QR_TOKEN_TTL_MS).toISOString(),
+    };
+  } catch (error) {
+    return toErrorState(error);
+  }
+}
+
+export async function confirmAttendance(
+  bookingId: string,
+): Promise<AttendanceActionState> {
+  const actor = await requireUserRole(["admin", "trainer"]);
+
+  try {
+    const result = await prisma.$transaction(
+      (tx) =>
+        confirmAttendanceForBooking(tx, bookingId, actor.id, {
+          method: "manual",
+        }),
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      },
+    );
+
+    revalidateBookingViews();
+
+    return toAttendanceSuccessState(result);
+  } catch (error) {
+    return toErrorState(error);
+  }
+}
+
+export async function confirmAttendanceFromQr(
+  token: string,
+): Promise<AttendanceActionState> {
+  const actor = await requireUserRole(["admin", "trainer"]);
+
+  try {
+    const verifiedToken = verifyBookingQrToken(token);
+
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const booking = await tx.booking.findUnique({
+          where: {
+            id: verifiedToken.bookingId,
+          },
+          select: {
+            userId: true,
+            sessionId: true,
+          },
+        });
+
+        if (
+          !booking ||
+          booking.userId !== verifiedToken.userId ||
+          booking.sessionId !== verifiedToken.sessionId
+        ) {
+          throw new BookingServiceError("INVALID_QR_TOKEN");
+        }
+
+        return confirmAttendanceForBooking(tx, verifiedToken.bookingId, actor.id, {
+          method: "qr",
+          requireQrWindow: true,
+        });
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      },
+    );
+
+    revalidateBookingViews();
+
+    return toAttendanceSuccessState(result);
+  } catch (error) {
+    return toErrorState(error);
+  }
+}
+
+export async function markBookingNoShow(
+  bookingId: string,
+): Promise<AttendanceActionState> {
+  const actor = await requireUserRole(["admin", "trainer"]);
+
+  try {
+    const result = await prisma.$transaction(
+      (tx) => markNoShowForBooking(tx, bookingId, actor.id),
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      },
+    );
+
+    revalidateBookingViews();
+
+    return toAttendanceSuccessState(result);
   } catch (error) {
     return toErrorState(error);
   }

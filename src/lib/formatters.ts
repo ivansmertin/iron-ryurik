@@ -72,10 +72,10 @@ export const membershipStatusLabels: Record<MembershipStatus, string> = {
 };
 
 export const bookingStatusLabels: Record<BookingStatus, string> = {
-  booked: "Записан",
+  pending: "Забронировано",
   cancelled: "Отменён",
-  attended: "Посетил",
-  no_show: "Не пришёл",
+  completed: "Посещение подтверждено",
+  no_show: "Неявка",
 };
 
 export function formatMoney(value: number | string | null | undefined) {

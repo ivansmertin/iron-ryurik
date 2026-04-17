@@ -3,6 +3,7 @@ import { PaginationControls } from "@/components/admin/pagination-controls";
 import { TabLinks } from "@/components/admin/tab-links";
 import { BookingStatusBadge } from "@/components/admin/status-badges";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BookingQRCode } from "@/features/bookings/components/booking-qr-code";
 import { CancelBookingButton } from "@/features/bookings/components/cancel-booking-button";
 import { getClientBookings } from "@/features/bookings/queries";
 import { requireUser } from "@/features/auth/get-user";
@@ -54,14 +55,15 @@ export default async function ClientBookingsPage({
 
       if (tab === "past") {
         return (
-          booking.status === "attended" ||
-          (booking.status === "booked" &&
+          booking.status === "completed" ||
+          booking.status === "no_show" ||
+          (booking.status === "pending" &&
             booking.session.startsAt.getTime() <= now.getTime())
         );
       }
 
       return (
-        booking.status === "booked" &&
+        booking.status === "pending" &&
         booking.session.startsAt.getTime() > now.getTime()
       );
     })
@@ -130,10 +132,13 @@ export default async function ClientBookingsPage({
                   </p>
                 ) : null}
                 {tab === "upcoming" ? (
-                  <CancelBookingButton
-                    bookingId={booking.id}
-                    sessionTitle={booking.session.title}
-                  />
+                  <div className="space-y-3">
+                    <BookingQRCode bookingId={booking.id} />
+                    <CancelBookingButton
+                      bookingId={booking.id}
+                      sessionTitle={booking.session.title}
+                    />
+                  </div>
                 ) : null}
               </CardContent>
             </Card>

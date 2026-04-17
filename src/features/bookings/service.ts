@@ -1,28 +1,47 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type BookingConfirmationMethod } from "@prisma/client";
 import { CANCELLATION_DEADLINE_HOURS } from "./constants";
+
+export const activeBookingStatuses = ["pending", "completed", "no_show"] as const;
+
+const QR_CONFIRMATION_BEFORE_START_HOURS = 3;
+const QR_CONFIRMATION_AFTER_END_HOURS = 2;
 
 export type BookingErrorCode =
   | "NO_ACTIVE_MEMBERSHIP"
+  | "NO_VISITS_REMAINING"
   | "SESSION_FULL"
   | "SESSION_NOT_AVAILABLE"
   | "ALREADY_BOOKED"
   | "SESSION_IN_PAST"
   | "BOOKING_NOT_FOUND"
   | "BOOKING_NOT_AVAILABLE"
+  | "BOOKING_ALREADY_CONFIRMED"
+  | "BOOKING_CANCELLED"
   | "FORBIDDEN"
   | "CANCELLATION_TOO_LATE"
+  | "CONFIRMATION_WINDOW_CLOSED"
+  | "NO_SHOW_TOO_EARLY"
+  | "INVALID_QR_TOKEN"
+  | "QR_TOKEN_EXPIRED"
   | "INTERNAL_ERROR";
 
 export const bookingErrorMessages: Record<BookingErrorCode, string> = {
-  NO_ACTIVE_MEMBERSHIP: "Нет активного абонемента с оставшимися занятиями",
+  NO_ACTIVE_MEMBERSHIP: "Нет активного абонемента с доступными занятиями",
+  NO_VISITS_REMAINING: "В абонементе не осталось занятий для списания",
   SESSION_FULL: "Мест нет",
   SESSION_NOT_AVAILABLE: "Сессия отменена или завершена",
   ALREADY_BOOKED: "Вы уже записаны",
   SESSION_IN_PAST: "Нельзя записаться на прошедшую сессию",
   BOOKING_NOT_FOUND: "Запись не найдена",
   BOOKING_NOT_AVAILABLE: "Запись уже отменена или завершена",
+  BOOKING_ALREADY_CONFIRMED: "Посещение уже подтверждено",
+  BOOKING_CANCELLED: "Запись отменена",
   FORBIDDEN: "Нельзя отменить чужую запись",
   CANCELLATION_TOO_LATE: `Отмена невозможна менее чем за ${CANCELLATION_DEADLINE_HOURS} часов до начала`,
+  CONFIRMATION_WINDOW_CLOSED: "QR-код можно подтвердить только рядом со временем занятия",
+  NO_SHOW_TOO_EARLY: "Неявку можно отметить только после начала занятия",
+  INVALID_QR_TOKEN: "QR-код недействителен или устарел",
+  QR_TOKEN_EXPIRED: "QR-код устарел. Обновите код на телефоне клиента",
   INTERNAL_ERROR: "Не удалось выполнить операцию",
 };
 
@@ -55,6 +74,7 @@ type LockedMembershipRow = {
   id: string;
   status: string;
   visitsRemaining: number;
+  reservedSessions?: number;
 };
 
 type LockedBookingRow = {
@@ -63,6 +83,16 @@ type LockedBookingRow = {
   sessionId: string;
   membershipId: string | null;
   status: string;
+};
+
+type LockedAttendanceBookingRow = LockedBookingRow & {
+  sessionTitle: string | null;
+  startsAt: Date;
+  durationMinutes: number;
+  sessionStatus: string;
+  clientFullName: string;
+  clientEmail: string;
+  visitsRemaining: number | null;
 };
 
 export type BookSessionResult = {
@@ -82,8 +112,42 @@ export type CancelBookingResult = {
   membershipRestored: boolean;
 };
 
+export type AttendanceResult = {
+  bookingId: string;
+  sessionId: string;
+  sessionTitle: string | null;
+  startsAt: Date;
+  durationMinutes: number;
+  clientFullName: string;
+  clientEmail: string;
+  status: "completed" | "no_show";
+  alreadyProcessed: boolean;
+  visitsRemaining: number | null;
+};
+
+type ConfirmAttendanceOptions = {
+  method: Exclude<BookingConfirmationMethod, "no_show">;
+  now?: Date;
+  requireQrWindow?: boolean;
+};
+
 function raise(code: BookingErrorCode): never {
   throw new BookingServiceError(code);
+}
+
+function isInQrConfirmationWindow(
+  startsAt: Date,
+  durationMinutes: number,
+  now: Date,
+) {
+  const earliest =
+    startsAt.getTime() - QR_CONFIRMATION_BEFORE_START_HOURS * 60 * 60 * 1000;
+  const latest =
+    startsAt.getTime() +
+    (durationMinutes / 60 + QR_CONFIRMATION_AFTER_END_HOURS) * 60 * 60 * 1000;
+  const timestamp = now.getTime();
+
+  return timestamp >= earliest && timestamp <= latest;
 }
 
 async function lockSession(
@@ -142,14 +206,28 @@ async function lockMembershipForBooking(
   userId: string,
 ): Promise<LockedMembershipRow> {
   const rows = await db.$queryRaw<LockedMembershipRow[]>(Prisma.sql`
-    SELECT id, status, "visitsRemaining"
-    FROM "Membership"
-    WHERE "userId" = ${userId}
-      AND status = 'active'
-      AND "startsAt" <= NOW()
-      AND "endsAt" >= NOW()
-      AND "visitsRemaining" > 0
-    ORDER BY "endsAt" ASC
+    SELECT
+      m.id,
+      m.status,
+      m."visitsRemaining",
+      COALESCE((
+        SELECT COUNT(*)::int
+        FROM "Booking" b
+        WHERE b."membershipId" = m.id
+          AND b.status = 'pending'
+      ), 0) AS "reservedSessions"
+    FROM "Membership" m
+    WHERE m."userId" = ${userId}
+      AND m.status = 'active'
+      AND m."startsAt" <= NOW()
+      AND m."endsAt" >= NOW()
+      AND m."visitsRemaining" > COALESCE((
+        SELECT COUNT(*)::int
+        FROM "Booking" b
+        WHERE b."membershipId" = m.id
+          AND b.status = 'pending'
+      ), 0)
+    ORDER BY m."endsAt" ASC
     LIMIT 1
     FOR UPDATE
   `);
@@ -163,7 +241,7 @@ async function lockMembershipForBooking(
   return membership;
 }
 
-async function lockMembershipForRefund(
+async function lockMembershipForDebit(
   db: BookingMutationClient,
   membershipId: string,
 ): Promise<LockedMembershipRow | null> {
@@ -191,6 +269,87 @@ async function lockBooking(
   return rows[0] ?? null;
 }
 
+async function lockAttendanceBooking(
+  db: BookingMutationClient,
+  bookingId: string,
+): Promise<LockedAttendanceBookingRow | null> {
+  const rows = await db.$queryRaw<LockedAttendanceBookingRow[]>(Prisma.sql`
+    SELECT
+      b.id,
+      b."userId",
+      b."sessionId",
+      b."membershipId",
+      b.status,
+      s.title AS "sessionTitle",
+      s."startsAt",
+      s."durationMinutes",
+      s.status AS "sessionStatus",
+      u."fullName" AS "clientFullName",
+      u.email AS "clientEmail",
+      m."visitsRemaining" AS "visitsRemaining"
+    FROM "Booking" b
+    INNER JOIN "Session" s ON s.id = b."sessionId"
+    INNER JOIN "User" u ON u.id = b."userId"
+    LEFT JOIN "Membership" m ON m.id = b."membershipId"
+    WHERE b.id = ${bookingId}
+    FOR UPDATE OF b
+  `);
+
+  return rows[0] ?? null;
+}
+
+function buildAttendanceResult(
+  booking: LockedAttendanceBookingRow,
+  status: "completed" | "no_show",
+  alreadyProcessed: boolean,
+  visitsRemaining = booking.visitsRemaining,
+): AttendanceResult {
+  return {
+    bookingId: booking.id,
+    sessionId: booking.sessionId,
+    sessionTitle: booking.sessionTitle,
+    startsAt: booking.startsAt,
+    durationMinutes: booking.durationMinutes,
+    clientFullName: booking.clientFullName,
+    clientEmail: booking.clientEmail,
+    status,
+    alreadyProcessed,
+    visitsRemaining,
+  };
+}
+
+async function debitMembershipForAttendance(
+  db: BookingMutationClient,
+  membershipId: string | null,
+) {
+  if (!membershipId) {
+    raise("NO_ACTIVE_MEMBERSHIP");
+  }
+
+  const membership = await lockMembershipForDebit(db, membershipId);
+
+  if (!membership) {
+    raise("NO_ACTIVE_MEMBERSHIP");
+  }
+
+  if (membership.visitsRemaining <= 0) {
+    raise("NO_VISITS_REMAINING");
+  }
+
+  await db.membership.update({
+    where: {
+      id: membership.id,
+    },
+    data: {
+      visitsRemaining: {
+        decrement: 1,
+      },
+    },
+  });
+
+  return membership.visitsRemaining - 1;
+}
+
 export async function bookSessionForUser(
   db: BookingMutationClient,
   userId: string,
@@ -206,7 +365,9 @@ export async function bookSessionForUser(
   const currentBookings = await db.booking.count({
     where: {
       sessionId,
-      status: "booked",
+      status: {
+        in: [...activeBookingStatuses],
+      },
     },
   });
 
@@ -225,7 +386,11 @@ export async function bookSessionForUser(
     },
   });
 
-  if (existingBooking?.status === "booked") {
+  if (
+    existingBooking?.status === "pending" ||
+    existingBooking?.status === "completed" ||
+    existingBooking?.status === "no_show"
+  ) {
     raise("ALREADY_BOOKED");
   }
 
@@ -239,10 +404,13 @@ export async function bookSessionForUser(
         id: existingBooking.id,
       },
       data: {
-        status: "booked",
+        status: "pending",
         bookedAt,
         cancelledAt: null,
         cancelReason: null,
+        confirmedAt: null,
+        confirmedById: null,
+        confirmationMethod: null,
         membershipId: membership.id,
       },
     });
@@ -254,24 +422,13 @@ export async function bookSessionForUser(
         userId,
         sessionId,
         membershipId: membership.id,
-        status: "booked",
+        status: "pending",
         bookedAt,
       },
     });
 
     bookingId = booking.id;
   }
-
-  await db.membership.update({
-    where: {
-      id: membership.id,
-    },
-    data: {
-      visitsRemaining: {
-        decrement: 1,
-      },
-    },
-  });
 
   return {
     bookingId,
@@ -298,7 +455,7 @@ export async function cancelBookingForUser(
     raise("FORBIDDEN");
   }
 
-  if (booking.status !== "booked") {
+  if (booking.status !== "pending") {
     raise("BOOKING_NOT_AVAILABLE");
   }
 
@@ -324,33 +481,124 @@ export async function cancelBookingForUser(
     },
   });
 
-  let membershipRestored = false;
-
-  if (booking.membershipId) {
-    const membership = await lockMembershipForRefund(db, booking.membershipId);
-
-    if (membership?.status === "active") {
-      await db.membership.update({
-        where: {
-          id: membership.id,
-        },
-        data: {
-          visitsRemaining: {
-            increment: 1,
-          },
-        },
-      });
-
-      membershipRestored = true;
-    }
-  }
-
   return {
     bookingId: booking.id,
     sessionId: session.id,
     sessionTitle: session.title,
     startsAt: session.startsAt,
     durationMinutes: session.durationMinutes,
-    membershipRestored,
+    membershipRestored: false,
   };
+}
+
+export async function confirmAttendanceForBooking(
+  db: BookingMutationClient,
+  bookingId: string,
+  actorId: string,
+  options: ConfirmAttendanceOptions = { method: "manual" },
+): Promise<AttendanceResult> {
+  const now = options.now ?? new Date();
+  const booking = await lockAttendanceBooking(db, bookingId);
+
+  if (!booking) {
+    raise("BOOKING_NOT_FOUND");
+  }
+
+  if (booking.status === "completed") {
+    return buildAttendanceResult(booking, "completed", true);
+  }
+
+  if (booking.status === "cancelled") {
+    raise("BOOKING_CANCELLED");
+  }
+
+  if (booking.status === "no_show") {
+    raise("BOOKING_NOT_AVAILABLE");
+  }
+
+  if (booking.status !== "pending") {
+    raise("BOOKING_NOT_AVAILABLE");
+  }
+
+  if (booking.sessionStatus === "cancelled") {
+    raise("SESSION_NOT_AVAILABLE");
+  }
+
+  if (
+    options.requireQrWindow &&
+    !isInQrConfirmationWindow(booking.startsAt, booking.durationMinutes, now)
+  ) {
+    raise("CONFIRMATION_WINDOW_CLOSED");
+  }
+
+  const visitsRemaining = await debitMembershipForAttendance(
+    db,
+    booking.membershipId,
+  );
+
+  await db.booking.update({
+    where: {
+      id: booking.id,
+    },
+    data: {
+      status: "completed",
+      confirmedAt: now,
+      confirmedById: actorId,
+      confirmationMethod: options.method,
+    },
+  });
+
+  return buildAttendanceResult(booking, "completed", false, visitsRemaining);
+}
+
+export async function markNoShowForBooking(
+  db: BookingMutationClient,
+  bookingId: string,
+  actorId: string,
+  now = new Date(),
+): Promise<AttendanceResult> {
+  const booking = await lockAttendanceBooking(db, bookingId);
+
+  if (!booking) {
+    raise("BOOKING_NOT_FOUND");
+  }
+
+  if (booking.status === "no_show") {
+    return buildAttendanceResult(booking, "no_show", true);
+  }
+
+  if (booking.status === "completed") {
+    raise("BOOKING_ALREADY_CONFIRMED");
+  }
+
+  if (booking.status === "cancelled") {
+    raise("BOOKING_CANCELLED");
+  }
+
+  if (booking.status !== "pending") {
+    raise("BOOKING_NOT_AVAILABLE");
+  }
+
+  if (booking.startsAt.getTime() > now.getTime()) {
+    raise("NO_SHOW_TOO_EARLY");
+  }
+
+  const visitsRemaining = await debitMembershipForAttendance(
+    db,
+    booking.membershipId,
+  );
+
+  await db.booking.update({
+    where: {
+      id: booking.id,
+    },
+    data: {
+      status: "no_show",
+      confirmedAt: now,
+      confirmedById: actorId,
+      confirmationMethod: "no_show",
+    },
+  });
+
+  return buildAttendanceResult(booking, "no_show", false, visitsRemaining);
 }

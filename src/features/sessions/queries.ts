@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { activeBookingStatuses } from "@/features/bookings/service";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
 
@@ -70,7 +71,9 @@ export async function listSessions({
           status: true,
           bookings: {
             where: {
-              status: "booked",
+              status: {
+                in: [...activeBookingStatuses],
+              },
             },
             select: {
               id: true,
@@ -114,7 +117,9 @@ export async function getSessionById(id: string) {
           version: true,
           bookings: {
             where: {
-              status: "booked",
+              status: {
+                in: [...activeBookingStatuses],
+              },
             },
             select: {
               id: true,
