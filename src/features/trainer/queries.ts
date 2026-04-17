@@ -2,6 +2,8 @@ import type { Prisma } from "@prisma/client";
 import { getDaysFromNowRange, getMoscowDayRange } from "@/lib/datetime";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
+import { type ClientSchedulePeriod, getScheduleRange } from "@/features/bookings/queries";
+import { activeBookingStatuses } from "@/features/bookings/service";
 
 export const trainerSlotTabs = ["upcoming", "past", "cancelled"] as const;
 
@@ -423,5 +425,63 @@ export async function getTrainerClientById(
       }),
     1,
     "trainer.getTrainerClientById",
+  );
+}
+
+export async function getTrainerScheduleData(
+  period: ClientSchedulePeriod,
+  now = new Date(),
+) {
+  return withPrismaReadRetry(
+    async () => {
+      const { start, end } = getScheduleRange(period, now);
+
+      const sessions = await prisma.session.findMany({
+        where: {
+          type: "group",
+          status: "scheduled",
+          startsAt: end
+            ? {
+                gte: start,
+                lt: end,
+              }
+            : {
+                gte: start,
+              },
+        },
+        orderBy: {
+          startsAt: "asc",
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          startsAt: true,
+          durationMinutes: true,
+          capacity: true,
+          origin: true,
+          trainerId: true,
+          trainer: {
+            select: {
+              fullName: true,
+            },
+          },
+          bookings: {
+            where: {
+              status: {
+                in: [...activeBookingStatuses],
+              },
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      return { sessions };
+    },
+    1,
+    "trainer.getTrainerScheduleData",
   );
 }

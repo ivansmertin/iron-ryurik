@@ -64,8 +64,11 @@ export async function saveGymScheduleSettings(
   const startedAt = Date.now();
 
   try {
-    await prisma.$transaction((tx) =>
-      saveGymScheduleSettingsWithDb(tx, parsed.data),
+    await prisma.$transaction(
+      (tx) => saveGymScheduleSettingsWithDb(tx, parsed.data),
+      {
+        timeout: 15000,
+      },
     );
   } catch (error) {
     logPrismaError("gymSchedule.saveGymScheduleSettings", error, startedAt);
@@ -74,9 +77,6 @@ export async function saveGymScheduleSettings(
       getDatabaseActionErrorMessage(
         error,
         "Не удалось сохранить настройки расписания.",
-        {
-          preserveKnownErrorMessage: true,
-        },
       ),
     );
   }

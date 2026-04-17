@@ -279,7 +279,6 @@ export async function updateExercise(
       getDatabaseActionErrorMessage(
         error,
         "Не удалось обновить упражнение. Попробуйте ещё раз.",
-        { preserveKnownErrorMessage: true },
       ),
     );
   }
@@ -308,7 +307,6 @@ export async function deleteExercise(
       getDatabaseActionErrorMessage(
         error,
         "Не удалось удалить упражнение. Если оно уже используется, отключите его.",
-        { preserveKnownErrorMessage: true },
       ),
     );
   }
