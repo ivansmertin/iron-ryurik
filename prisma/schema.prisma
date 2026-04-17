@@ -48,6 +48,8 @@ model User {
   measurements      Measurement[]
   deviceIntegrations DeviceIntegration[]
   subscriptions      DeviceSubscription[]
+  dropInPasses       DropInPass[]        @relation("ClientDropInPasses")
+  dropInPassesPaid   DropInPass[]        @relation("DropInPassPaidBy")
 
   @@index([role])
   @@index([email])
@@ -145,6 +147,12 @@ model Session {
   capacity       Int           // 1 для personal, 6-8 для group
   cancellationDeadlineHours Int @default(2)
   status         SessionStatus @default(scheduled)
+  // Разовая цена посещения. Для manual-сессий выставляет тренер/админ.
+  // Для auto_free игнорируется — цена берётся из GymSettings.freeSlotDropInPrice.
+  dropInPrice    Decimal?      @db.Decimal(10, 2)
+  // Разрешение на разовую бронь без абонемента. Для personal и group включает тренер
+  // явно, поэтому default=false — чтобы персоналки не начали по ошибке продаваться разово.
+  dropInEnabled  Boolean       @default(false)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   // версия для оптимистичной блокировки при бронировании
@@ -153,6 +161,7 @@ model Session {
   trainer  User?     @relation("TrainerSessions", fields: [trainerId], references: [id], onDelete: SetNull)
   bookings Booking[]
   workoutLogs WorkoutLog[]
+  dropInPasses DropInPass[]
 
   @@index([startsAt])
   @@index([origin, startsAt])
@@ -178,6 +187,10 @@ model Booking {
   userId        String        @db.Uuid
   sessionId     String        @db.Uuid
   membershipId  String?       @db.Uuid  // какой абонемент списали
+  // Если бронь оплачивается разово (не по абонементу) — ссылка на DropInPass.
+  // CHECK-constraint "Booking_payment_source_chk" гарантирует, что ровно одно из
+  // (membershipId, dropInId) NOT NULL. Индекс живёт в миграции.
+  dropInId      String?       @unique @db.Uuid
   status             BookingStatus              @default(pending)
   bookedAt           DateTime                   @default(now())
   cancelledAt        DateTime?
@@ -189,12 +202,58 @@ model Booking {
   user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   session    Session     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
   membership Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  dropIn     DropInPass? @relation(fields: [dropInId], references: [id], onDelete: SetNull)
 
   // один пользователь не может дважды записаться на одну сессию
   @@unique([userId, sessionId])
   @@index([sessionId, status])
   @@index([userId, status])
   @@index([membershipId, status])
+}
+
+// ============ РАЗОВЫЕ ВИЗИТЫ (DROP-IN) ============
+
+enum DropInStatus {
+  pending     // клиент забронировал разово, ждём оплаты на ресепшен
+  paid        // тренер/админ подтвердил приём наличных/перевода
+  cancelled   // отменён до оплаты (клиент, тренер, админ или cascade soft-delete)
+  refunded    // возврат после оплаты (только админ)
+}
+
+// DropInPass — отдельная сущность продажи разового визита без абонемента.
+// Живёт параллельно с Membership: Booking ссылается либо на membershipId, либо на
+// dropInId (CHECK-constraint "Booking_payment_source_chk" в миграции).
+// Без привязки к Booking используется для "walk-in" на ресепшене —
+// клиент пришёл на свободную тренировку без записи, тренер/админ фиксирует оплату.
+model DropInPass {
+  id           String       @id @default(uuid()) @db.Uuid
+  userId       String       @db.Uuid
+  // sessionId опционален: walk-in на свободную тренировку без предварительной брони
+  // создаётся без привязки к конкретной Session.
+  sessionId    String?      @db.Uuid
+  // Цена зафиксирована в момент создания Pass'а — не тянем через Session/GymSettings,
+  // чтобы смена цены в будущем не ломала историю.
+  price        Decimal      @db.Decimal(10, 2)
+  status       DropInStatus @default(pending)
+  paidAt       DateTime?
+  paidAmount   Decimal?     @db.Decimal(10, 2)
+  paidById     String?      @db.Uuid
+  cancelledAt  DateTime?
+  cancelReason String?
+  refundedAt   DateTime?
+  refundedById String?      @db.Uuid
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  user    User     @relation("ClientDropInPasses", fields: [userId], references: [id], onDelete: Cascade)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  paidBy  User?    @relation("DropInPassPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  booking Booking?
+
+  @@index([userId, status])
+  @@index([sessionId, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([paidAt])
 }
 
 // ============ ТРЕНИРОВКИ И ПРОГРАММЫ ============
@@ -380,6 +439,10 @@ model GymSettings {
   id                      Int      @id @default(1)
   freeSlotCapacity        Int      @default(8)
   freeSlotDurationMinutes Int      @default(60)
+  // Цена разового визита на свободную тренировку (auto_free слоты + walk-in).
+  // Админ меняет одним числом, применяется глобально; по факту оплаты — цена
+  // копируется в DropInPass.price в момент создания.
+  freeSlotDropInPrice     Decimal  @db.Decimal(10, 2) @default(0)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 }

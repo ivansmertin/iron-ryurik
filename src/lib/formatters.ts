@@ -78,6 +78,13 @@ export const bookingStatusLabels: Record<BookingStatus, string> = {
   no_show: "Неявка",
 };
 
+export const dropInStatusLabels: Record<string, string> = {
+  pending: "Ожидает оплаты",
+  paid: "Оплачено",
+  cancelled: "Отменено",
+  refunded: "Возврат",
+};
+
 export function formatBookingCancelReason(reason: string | null | undefined) {
   switch (reason) {
     case "client_cancelled":

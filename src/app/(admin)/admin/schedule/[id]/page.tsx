@@ -71,6 +71,8 @@ export default async function SessionDetailsPage({
               durationMinutes: session.durationMinutes,
               capacity: session.capacity,
               cancellationDeadlineHours: session.cancellationDeadlineHours,
+              dropInEnabled: session.dropInEnabled,
+              dropInPrice: session.dropInPrice ? Number(session.dropInPrice) : undefined,
             }}
             updateOptions={{
               hasActiveBookings: activeBookingsCount > 0,

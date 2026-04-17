@@ -37,6 +37,8 @@ function getSessionPayload(formData: FormData) {
     durationMinutes: String(formData.get("durationMinutes") ?? ""),
     capacity: String(formData.get("capacity") ?? ""),
     cancellationDeadlineHours: String(formData.get("cancellationDeadlineHours") ?? ""),
+    dropInEnabled: formData.get("dropInEnabled") === "on",
+    dropInPrice: formData.get("dropInPrice") ? String(formData.get("dropInPrice")) : undefined,
   };
 }
 
@@ -107,6 +109,8 @@ export async function createSession(
               : parsed.data.durationMinutes,
             capacity: Math.max(parsed.data.capacity, activeBookingsCount),
             cancellationDeadlineHours: parsed.data.cancellationDeadlineHours,
+            dropInEnabled: parsed.data.dropInEnabled,
+            dropInPrice: parsed.data.dropInPrice,
             version: {
               increment: 1,
             },
@@ -126,6 +130,8 @@ export async function createSession(
           durationMinutes: parsed.data.durationMinutes,
           capacity: parsed.data.capacity,
           cancellationDeadlineHours: parsed.data.cancellationDeadlineHours,
+          dropInEnabled: parsed.data.dropInEnabled,
+          dropInPrice: parsed.data.dropInPrice,
         },
       });
     });
@@ -237,6 +243,8 @@ export async function updateSession(
         durationMinutes: parsed.data.durationMinutes,
         capacity: parsed.data.capacity,
         cancellationDeadlineHours: parsed.data.cancellationDeadlineHours,
+        dropInEnabled: parsed.data.dropInEnabled,
+        dropInPrice: parsed.data.dropInPrice,
         version: {
           increment: 1,
         },

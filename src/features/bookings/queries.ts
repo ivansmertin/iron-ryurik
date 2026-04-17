@@ -54,6 +54,8 @@ export type ClientScheduleSession = {
   startsAt: Date;
   durationMinutes: number;
   capacity: number;
+  dropInEnabled: boolean;
+  dropInPrice: Prisma.Decimal | null;
   bookings: Array<{
     userId: string;
   }>;
@@ -286,6 +288,8 @@ export async function getClientScheduleData(
           startsAt: true,
           durationMinutes: true,
           capacity: true,
+          dropInEnabled: true,
+          dropInPrice: true,
           bookings: {
             where: {
               status: {

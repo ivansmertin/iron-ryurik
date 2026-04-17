@@ -26,6 +26,7 @@ export type GymWorkingHourInput = {
 export type GymScheduleSettingsInput = {
   freeSlotCapacity: number;
   freeSlotDurationMinutes: number;
+  freeSlotDropInPrice: number;
   workingHours: GymWorkingHourInput[];
 };
 
@@ -162,13 +163,19 @@ export async function getGymScheduleSettings(db = prisma) {
       ]);
 
       return {
-        settings: settings ?? {
-          id: 1,
-          freeSlotCapacity: FREE_SLOT_CAPACITY,
-          freeSlotDurationMinutes: FREE_SLOT_DURATION_MINUTES,
-          createdAt: new Date(0),
-          updatedAt: new Date(0),
-        },
+        settings: settings
+          ? {
+              ...settings,
+              freeSlotDropInPrice: Number(settings.freeSlotDropInPrice),
+            }
+          : {
+              id: 1,
+              freeSlotCapacity: FREE_SLOT_CAPACITY,
+              freeSlotDurationMinutes: FREE_SLOT_DURATION_MINUTES,
+              freeSlotDropInPrice: 0,
+              createdAt: new Date(0),
+              updatedAt: new Date(0),
+            },
         workingHours: workingHours.length ? workingHours : getDefaultWorkingHours(),
       };
     },
@@ -187,11 +194,13 @@ export async function saveGymScheduleSettingsWithDb(
     update: {
       freeSlotCapacity: input.freeSlotCapacity,
       freeSlotDurationMinutes: input.freeSlotDurationMinutes,
+      freeSlotDropInPrice: input.freeSlotDropInPrice,
     },
     create: {
       id: 1,
       freeSlotCapacity: input.freeSlotCapacity,
       freeSlotDurationMinutes: input.freeSlotDurationMinutes,
+      freeSlotDropInPrice: input.freeSlotDropInPrice,
     },
   });
 
@@ -226,6 +235,7 @@ export async function reconcileFreeSlotsWithDb(
       ? {
           freeSlotCapacity: scheduleSettings.settings.freeSlotCapacity,
           freeSlotDurationMinutes: scheduleSettings.settings.freeSlotDurationMinutes,
+          freeSlotDropInPrice: Number(scheduleSettings.settings.freeSlotDropInPrice),
           workingHours: scheduleSettings.workingHours,
         }
       : scheduleSettings;

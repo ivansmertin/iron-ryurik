@@ -21,6 +21,8 @@ export type BookingErrorCode =
   | "NO_SHOW_TOO_EARLY"
   | "INVALID_QR_TOKEN"
   | "QR_TOKEN_EXPIRED"
+  | "DROP_IN_PAYMENT_REQUIRED"
+  | "DROP_IN_INCONSISTENT_STATE"
   | "INTERNAL_ERROR";
 
 export const bookingErrorMessages: Record<BookingErrorCode, string> = {
@@ -40,6 +42,8 @@ export const bookingErrorMessages: Record<BookingErrorCode, string> = {
   NO_SHOW_TOO_EARLY: "Неявку можно отметить только после начала занятия",
   INVALID_QR_TOKEN: "QR-код недействителен или устарел",
   QR_TOKEN_EXPIRED: "QR-код устарел. Обновите код на телефоне клиента",
+  DROP_IN_PAYMENT_REQUIRED: "Требуется оплата разового визита",
+  DROP_IN_INCONSISTENT_STATE: "Разовый визит в неожиданном состоянии. Обратитесь к администратору.",
   INTERNAL_ERROR: "Не удалось выполнить операцию",
 };
 
@@ -55,7 +59,7 @@ export class BookingServiceError extends Error {
 
 export type BookingMutationClient = Pick<
   Prisma.TransactionClient,
-  "session" | "booking" | "membership" | "workoutLog" | "$queryRaw"
+  "session" | "booking" | "membership" | "workoutLog" | "dropInPass" | "$queryRaw"
 >;
 
 type LockedSessionRow = {
@@ -66,6 +70,8 @@ type LockedSessionRow = {
   capacity: number;
   status: string;
   type: string;
+  dropInEnabled: boolean;
+  dropInPrice: Prisma.Decimal | null;
 };
 
 type LockedMembershipRow = {
@@ -80,6 +86,7 @@ type LockedBookingRow = {
   userId: string;
   sessionId: string;
   membershipId: string | null;
+  dropInId: string | null;
   status: string;
 };
 
@@ -91,6 +98,9 @@ type LockedAttendanceBookingRow = LockedBookingRow & {
   clientFullName: string;
   clientEmail: string;
   visitsRemaining: number | null;
+  dropInId: string | null;
+  dropInStatus: string | null;
+  dropInPrice: Prisma.Decimal | null;
 };
 
 export type BookSessionResult = {
@@ -99,6 +109,7 @@ export type BookSessionResult = {
   sessionTitle: string | null;
   startsAt: Date;
   durationMinutes: number;
+  dropInPassId: string | null;
 };
 
 export type CancelBookingResult = {
@@ -109,6 +120,8 @@ export type CancelBookingResult = {
   durationMinutes: number;
   membershipRestored: boolean;
 };
+
+export type AttendancePaymentSource = "membership" | "drop_in";
 
 export type AttendanceResult = {
   bookingId: string;
@@ -121,7 +134,30 @@ export type AttendanceResult = {
   status: "completed" | "no_show";
   alreadyProcessed: boolean;
   visitsRemaining: number | null;
+  paymentSource: AttendancePaymentSource | null;
+  dropInPassId: string | null;
 };
+
+export type DropInPaymentRequiredDetails = {
+  bookingId: string;
+  dropInPassId: string;
+  clientFullName: string;
+  clientEmail: string;
+  sessionTitle: string | null;
+  startsAt: Date;
+  durationMinutes: number;
+  price: Prisma.Decimal;
+};
+
+export class DropInPaymentRequiredError extends BookingServiceError {
+  details: DropInPaymentRequiredDetails;
+
+  constructor(details: DropInPaymentRequiredDetails) {
+    super("DROP_IN_PAYMENT_REQUIRED");
+    this.name = "DropInPaymentRequiredError";
+    this.details = details;
+  }
+}
 
 type ConfirmAttendanceOptions = {
   method: Exclude<BookingConfirmationMethod, "no_show">;
@@ -160,7 +196,9 @@ async function lockSession(
       "durationMinutes",
       capacity,
       status,
-      type
+      type,
+      "dropInEnabled",
+      "dropInPrice"
     FROM "Session"
     WHERE id = ${sessionId}
     FOR UPDATE
@@ -266,7 +304,7 @@ async function lockBooking(
   bookingId: string,
 ): Promise<LockedBookingRow | null> {
   const rows = await db.$queryRaw<LockedBookingRow[]>(Prisma.sql`
-    SELECT id, "userId", "sessionId", "membershipId", status
+    SELECT id, "userId", "sessionId", "membershipId", "dropInId", status
     FROM "Booking"
     WHERE id = ${bookingId}
     FOR UPDATE
@@ -285,6 +323,7 @@ async function lockAttendanceBooking(
       b."userId",
       b."sessionId",
       b."membershipId",
+      b."dropInId",
       b.status,
       s.title AS "sessionTitle",
       s."startsAt",
@@ -292,16 +331,27 @@ async function lockAttendanceBooking(
       s.status AS "sessionStatus",
       u."fullName" AS "clientFullName",
       u.email AS "clientEmail",
-      m."visitsRemaining" AS "visitsRemaining"
+      m."visitsRemaining" AS "visitsRemaining",
+      dip.status AS "dropInStatus",
+      dip.price AS "dropInPrice"
     FROM "Booking" b
     INNER JOIN "Session" s ON s.id = b."sessionId"
     INNER JOIN "User" u ON u.id = b."userId"
     LEFT JOIN "Membership" m ON m.id = b."membershipId"
+    LEFT JOIN "DropInPass" dip ON dip.id = b."dropInId"
     WHERE b.id = ${bookingId}
     FOR UPDATE OF b
   `);
 
   return rows[0] ?? null;
+}
+
+function getPaymentSource(
+  booking: LockedAttendanceBookingRow,
+): AttendancePaymentSource | null {
+  if (booking.dropInId) return "drop_in";
+  if (booking.membershipId) return "membership";
+  return null;
 }
 
 function buildAttendanceResult(
@@ -321,6 +371,8 @@ function buildAttendanceResult(
     status,
     alreadyProcessed,
     visitsRemaining,
+    paymentSource: getPaymentSource(booking),
+    dropInPassId: booking.dropInId,
   };
 }
 
@@ -354,6 +406,71 @@ async function debitMembershipForAttendance(
   });
 
   return membership.visitsRemaining - 1;
+}
+
+/**
+ * Списание/подтверждение оплаты при confirm attendance.
+ * Возвращает остаток визитов по абонементу (или null, если оплата — drop-in).
+ * Для pending drop-in бросает DropInPaymentRequiredError — UI-сканер должен
+ * предложить принять оплату и повторить операцию.
+ */
+async function assertAndDebitPaymentForAttendance(
+  db: BookingMutationClient,
+  booking: LockedAttendanceBookingRow,
+): Promise<number | null> {
+  if (booking.dropInId) {
+    switch (booking.dropInStatus) {
+      case "paid":
+        return null;
+      case "pending":
+        if (!booking.dropInPrice) {
+          raise("DROP_IN_INCONSISTENT_STATE");
+        }
+        throw new DropInPaymentRequiredError({
+          bookingId: booking.id,
+          dropInPassId: booking.dropInId,
+          clientFullName: booking.clientFullName,
+          clientEmail: booking.clientEmail,
+          sessionTitle: booking.sessionTitle,
+          startsAt: booking.startsAt,
+          durationMinutes: booking.durationMinutes,
+          price: booking.dropInPrice,
+        });
+      case "cancelled":
+      case "refunded":
+      default:
+        raise("DROP_IN_INCONSISTENT_STATE");
+    }
+  }
+
+  return debitMembershipForAttendance(db, booking.membershipId);
+}
+
+/**
+ * Обработка оплаты при no_show:
+ *   - membership → списываем визит (клиент "потратил" место);
+ *   - drop-in paid → без изменений, просто фиксируем no_show;
+ *   - drop-in pending → отменяем pass (клиент так и не заплатил).
+ */
+async function handlePaymentForNoShow(
+  db: BookingMutationClient,
+  booking: LockedAttendanceBookingRow,
+): Promise<number | null> {
+  if (booking.dropInId) {
+    if (booking.dropInStatus === "pending") {
+      await db.dropInPass.update({
+        where: { id: booking.dropInId },
+        data: {
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancelReason: "no_show",
+        },
+      });
+    }
+    return null;
+  }
+
+  return debitMembershipForAttendance(db, booking.membershipId);
 }
 
 async function ensureWorkoutLogForAttendance(
@@ -430,9 +547,34 @@ export async function bookSessionForUser(
     raise("ALREADY_BOOKED");
   }
 
-  const membership = await lockMembershipForBooking(db, userId);
   const bookedAt = now;
   let bookingId: string;
+  let membershipId: string | null = null;
+  let dropInId: string | null = null;
+
+  try {
+    const membership = await lockMembershipForBooking(db, userId);
+    membershipId = membership.id;
+  } catch (error) {
+    if (
+      error instanceof BookingServiceError &&
+      error.code === "NO_ACTIVE_MEMBERSHIP" &&
+      session.dropInEnabled
+    ) {
+      // Create a pending drop-in pass
+      const dropInPass = await db.dropInPass.create({
+        data: {
+          userId,
+          sessionId,
+          price: session.dropInPrice ?? 0,
+          status: "pending",
+        },
+      });
+      dropInId = dropInPass.id;
+    } else {
+      throw error;
+    }
+  }
 
   if (existingBooking?.status === "cancelled") {
     const booking = await db.booking.update({
@@ -447,7 +589,8 @@ export async function bookSessionForUser(
         confirmedAt: null,
         confirmedById: null,
         confirmationMethod: null,
-        membershipId: membership.id,
+        membershipId,
+        dropInId,
       },
     });
 
@@ -457,7 +600,8 @@ export async function bookSessionForUser(
       data: {
         userId,
         sessionId,
-        membershipId: membership.id,
+        membershipId,
+        dropInId,
         status: "pending",
         bookedAt,
       },
@@ -472,6 +616,7 @@ export async function bookSessionForUser(
     sessionTitle: session.title,
     startsAt: session.startsAt,
     durationMinutes: session.durationMinutes,
+    dropInPassId: dropInId,
   };
 }
 
@@ -519,6 +664,23 @@ export async function cancelBookingForUser(
       cancelReason: "client_cancelled",
     },
   });
+
+  // Если бронь была по drop-in и оплата ещё не принята — отменяем pass.
+  // Paid pass оставляем в paid: клиент фактически уже заплатил и должен
+  // обращаться к администратору за возвратом.
+  if (booking.dropInId) {
+    await db.dropInPass.updateMany({
+      where: {
+        id: booking.dropInId,
+        status: "pending",
+      },
+      data: {
+        status: "cancelled",
+        cancelledAt,
+        cancelReason: "client_cancelled",
+      },
+    });
+  }
 
   return {
     bookingId: booking.id,
@@ -571,10 +733,7 @@ export async function confirmAttendanceForBooking(
     raise("CONFIRMATION_WINDOW_CLOSED");
   }
 
-  const visitsRemaining = await debitMembershipForAttendance(
-    db,
-    booking.membershipId,
-  );
+  const visitsRemaining = await assertAndDebitPaymentForAttendance(db, booking);
 
   await db.booking.update({
     where: {
@@ -625,10 +784,7 @@ export async function markNoShowForBooking(
     raise("NO_SHOW_TOO_EARLY");
   }
 
-  const visitsRemaining = await debitMembershipForAttendance(
-    db,
-    booking.membershipId,
-  );
+  const visitsRemaining = await handlePaymentForNoShow(db, booking);
 
   await db.booking.update({
     where: {

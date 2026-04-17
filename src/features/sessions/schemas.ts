@@ -32,6 +32,20 @@ const sessionBaseSchema = z.object({
     .int("Введите целое число")
     .min(0, "Минимум 0 часов")
     .max(72, "Максимум 72 часа"),
+  dropInEnabled: z.boolean().default(false),
+  dropInPrice: z.coerce
+    .number()
+    .min(0, "Минимум 0 руб.")
+    .optional()
+    .nullable(),
+}).superRefine((value, ctx) => {
+  if (value.dropInEnabled && (value.dropInPrice === null || value.dropInPrice === undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["dropInPrice"],
+      message: "Укажите цену для разового визита",
+    });
+  }
 });
 
 function addInvalidDateIssue(

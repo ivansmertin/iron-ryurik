@@ -7,6 +7,7 @@ import type { z } from "zod/v4";
 import { toast } from "sonner";
 import { FieldError } from "@/components/admin/field-error";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -237,6 +238,45 @@ export function SessionForm({
             {...form.register("cancellationDeadlineHours")}
           />
           <FieldError message={fieldError("cancellationDeadlineHours")} />
+        </div>
+
+        <div className="flex flex-col space-y-4 rounded-lg border border-border/70 p-4 md:col-span-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="dropInEnabled"
+              type="checkbox"
+              onChange={(e) => form.setValue("dropInEnabled", e.target.checked)}
+              checked={Boolean(form.watch("dropInEnabled"))}
+              disabled={isPastSession}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="dropInEnabled" className="cursor-pointer font-medium">
+                Разрешить разовую запись (Drop-in)
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Клиенты без абонемента смогут записаться на это занятие платно.
+              </p>
+            </div>
+          </div>
+
+          {form.watch("dropInEnabled") && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+              <Label htmlFor="dropInPrice">Цена разового визита (₽)</Label>
+              <Input
+                id="dropInPrice"
+                type="number"
+                min={0}
+                step={50}
+                placeholder="Например, 600"
+                aria-invalid={Boolean(fieldError("dropInPrice"))}
+                disabled={isPastSession}
+                {...form.register("dropInPrice")}
+              />
+              <FieldError message={fieldError("dropInPrice")} />
+            </div>
+          )}
+          {/* Hidden input to pass the boolean state to formData in Next.js action if Checkbox is not a native form element */}
+          <input type="hidden" name="dropInEnabled" value={form.watch("dropInEnabled") ? "on" : "off"} />
         </div>
       </div>
 

@@ -29,6 +29,8 @@ export default async function NewSessionPage() {
               durationMinutes: 60,
               capacity: 8,
               cancellationDeadlineHours: 2,
+              dropInEnabled: false,
+              dropInPrice: undefined,
             }}
             trainers={trainers}
           />

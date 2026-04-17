@@ -20,6 +20,7 @@ describe("gym schedule free slots", () => {
     const candidates = buildFreeSlotCandidates({
       freeSlotCapacity: 8,
       freeSlotDurationMinutes: 60,
+      freeSlotDropInPrice: 0,
       workingHours: workingHours(),
       now: mondayNow,
     });
@@ -58,6 +59,7 @@ describe("gym schedule free slots", () => {
       {
         freeSlotCapacity: 8,
         freeSlotDurationMinutes: 60,
+        freeSlotDropInPrice: 0,
         workingHours: workingHours(),
       },
       mondayNow,
@@ -100,6 +102,7 @@ describe("gym schedule free slots", () => {
       {
         freeSlotCapacity: 8,
         freeSlotDurationMinutes: 60,
+        freeSlotDropInPrice: 0,
         workingHours: shortenedHours,
       },
       mondayNow,
@@ -136,6 +139,7 @@ describe("gym schedule free slots", () => {
         {
           freeSlotCapacity: 8,
           freeSlotDurationMinutes: 60,
+          freeSlotDropInPrice: 0,
           workingHours: shortenedHours,
         },
         mondayNow,
@@ -172,6 +176,7 @@ describe("gym schedule free slots", () => {
       {
         freeSlotCapacity: 8,
         freeSlotDurationMinutes: 60,
+        freeSlotDropInPrice: 0,
         workingHours: workingHours(),
       },
       mondayNow,
@@ -210,6 +215,7 @@ describe("gym schedule free slots", () => {
       {
         freeSlotCapacity: 8,
         freeSlotDurationMinutes: 60,
+        freeSlotDropInPrice: 0,
         workingHours: workingHours(),
       },
       mondayNow,

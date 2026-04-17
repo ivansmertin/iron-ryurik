@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bookSessionForUser,
@@ -29,6 +30,8 @@ function createBookingDb({
   existingBooking,
   currentBookings = 0,
   membership = membershipRow,
+  dropInEnabled = false,
+  dropInPrice = null,
 }: {
   existingBooking?: {
     id: string;
@@ -36,11 +39,18 @@ function createBookingDb({
   } | null;
   currentBookings?: number;
   membership?: typeof membershipRow | null;
+  dropInEnabled?: boolean;
+  dropInPrice?: Prisma.Decimal | null;
 } = {}) {
+  const session = {
+    ...sessionRow,
+    dropInEnabled,
+    dropInPrice,
+  };
   return {
     $queryRaw: vi
       .fn()
-      .mockResolvedValueOnce([sessionRow])
+      .mockResolvedValueOnce([session])
       .mockResolvedValueOnce(membership ? [membership] : []),
     booking: {
       count: vi.fn().mockResolvedValue(currentBookings),
@@ -50,6 +60,11 @@ function createBookingDb({
     },
     membership: {
       update: vi.fn().mockResolvedValue({ id: membership?.id ?? "membership-1" }),
+    },
+    dropInPass: {
+      create: vi.fn().mockResolvedValue({ id: "drop-in-new" }),
+      update: vi.fn().mockResolvedValue({ id: "drop-in-1" }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     session: {
       update: vi.fn(),
@@ -63,6 +78,7 @@ function createAttendanceRow(status = "pending") {
     userId: "user-1",
     sessionId: "session-1",
     membershipId: "membership-1",
+    dropInId: null,
     status,
     sessionTitle: "Intervals",
     startsAt: new Date("2026-04-14T15:00:00.000Z"),
@@ -71,6 +87,9 @@ function createAttendanceRow(status = "pending") {
     clientFullName: "Client One",
     clientEmail: "client@example.com",
     visitsRemaining: 3,
+    dropInStatus: null,
+    dropInPrice: null,
+    dropInEnabled: false,
   };
 }
 
@@ -85,6 +104,11 @@ function createAttendanceDb(status = "pending") {
     },
     membership: {
       update: vi.fn().mockResolvedValue({ id: "membership-1" }),
+    },
+    dropInPass: {
+      create: vi.fn().mockResolvedValue({ id: "drop-in-new" }),
+      update: vi.fn().mockResolvedValue({ id: "drop-in-1" }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     workoutLog: {
       upsert: vi.fn().mockResolvedValue({ id: "workout-log-1" }),
@@ -138,6 +162,7 @@ describe("bookSessionForUser", () => {
       sessionTitle: "Intervals",
       startsAt: new Date("2026-04-14T15:00:00.000Z"),
       durationMinutes: 60,
+      dropInPassId: null,
     });
     expect(db.membership.update).not.toHaveBeenCalled();
     expect(db.booking.create).toHaveBeenCalledWith({
@@ -145,6 +170,7 @@ describe("bookSessionForUser", () => {
         userId: "user-1",
         sessionId: "session-1",
         membershipId: "membership-1",
+        dropInId: null,
         status: "pending",
         bookedAt: now,
       },
@@ -193,6 +219,36 @@ describe("bookSessionForUser", () => {
     expect(getRawSqlText(membershipQuery)).toContain('m."visitsRemaining" >');
   });
 
+  it("falls back to drop-in booking if no membership and drop-in is enabled", async () => {
+    const db = createBookingDb({
+      membership: null,
+      dropInEnabled: true,
+      dropInPrice: new Prisma.Decimal(500),
+    });
+
+    const result = await bookSessionForUser(db as never, "user-1", "session-1", now);
+
+    expect(result.dropInPassId).toBe("drop-in-new");
+    expect(db.dropInPass.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user-1",
+        sessionId: "session-1",
+        price: new Prisma.Decimal(500),
+        status: "pending",
+      },
+    });
+    expect(db.booking.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user-1",
+        sessionId: "session-1",
+        membershipId: null,
+        dropInId: "drop-in-new",
+        status: "pending",
+        bookedAt: now,
+      },
+    });
+  });
+
   it("rejects when the user already has a pending booking", async () => {
     const db = createBookingDb({
       existingBooking: {
@@ -229,6 +285,7 @@ describe("bookSessionForUser", () => {
         confirmedById: null,
         confirmationMethod: null,
         membershipId: "membership-1",
+        dropInId: null,
       },
     });
     expect(db.booking.create).not.toHaveBeenCalled();
@@ -255,6 +312,7 @@ describe("cancelBookingForUser", () => {
             userId: "user-1",
             sessionId: "session-1",
             membershipId: "membership-1",
+            dropInId: null,
             status: "pending",
           },
         ])
@@ -272,6 +330,9 @@ describe("cancelBookingForUser", () => {
       },
       membership: {
         update: vi.fn(),
+      },
+      dropInPass: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       session: {
         update: vi.fn(),
@@ -307,6 +368,7 @@ describe("cancelBookingForUser", () => {
             userId: "user-1",
             sessionId: "session-1",
             membershipId: "membership-1",
+            dropInId: null,
             status: "pending",
           },
         ])
@@ -324,6 +386,9 @@ describe("cancelBookingForUser", () => {
       },
       membership: {
         update: vi.fn(),
+      },
+      dropInPass: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       session: {
         update: vi.fn(),
@@ -362,6 +427,8 @@ describe("attendance confirmation", () => {
       status: "completed",
       alreadyProcessed: false,
       visitsRemaining: 2,
+      paymentSource: "membership",
+      dropInPassId: null,
     });
     expect(db.membership.update).toHaveBeenCalledWith({
       where: { id: "membership-1" },

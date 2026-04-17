@@ -170,11 +170,15 @@ export default async function ClientSchedulePage({
                   const hasPlaces = bookedCount < session.capacity;
                   const buttonMode = isBooked
                     ? "booked"
-                    : !bookableMembership
-                      ? "no-membership"
-                      : hasPlaces
+                    : bookableMembership
+                      ? hasPlaces
                         ? "bookable"
-                        : "full";
+                        : "full"
+                      : session.dropInEnabled
+                        ? hasPlaces
+                          ? ("drop-in" as const)
+                          : "full"
+                        : "no-membership";
 
                   return (
                     <Card key={session.id} className="border-border/70 shadow-sm">
@@ -211,6 +215,7 @@ export default async function ClientSchedulePage({
                             sessionId={session.id}
                             sessionTitle={session.title}
                             mode={buttonMode}
+                            price={session.dropInPrice ? Number(session.dropInPrice) : undefined}
                           />
                         </div>
                       </CardContent>

@@ -28,13 +28,18 @@ export default async function MembershipPlansPage({
   const toastKey = getSearchParamValue(resolvedSearchParams.toast);
   const plans = await listMembershipPlans();
 
+  const sectionTabs = [
+    { label: "Планы", href: "/admin/memberships/plans", isActive: true },
+    { label: "Разовые визиты", href: "/admin/memberships/drop-ins", isActive: false },
+  ];
+
   return (
     <div className="space-y-6">
       <AdminToastListener toastKey={toastKey} />
 
       <PageHeader
-        title="Планы абонементов"
-        description="Создавайте, редактируйте и отключайте планы."
+        title="Оплата"
+        description="Управление планами абонементов и разовыми визитами."
         actions={
           <Button
             nativeButton={false}
@@ -44,6 +49,8 @@ export default async function MembershipPlansPage({
           </Button>
         }
       />
+
+      <TabLinks items={sectionTabs} />
 
       {/* Mobile cards */}
       <div className="grid gap-3 md:hidden">

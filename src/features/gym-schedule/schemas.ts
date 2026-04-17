@@ -40,6 +40,9 @@ export const gymScheduleSettingsSchema = z.object({
     .min(1, "Минимум 1 место")
     .max(20, "Максимум 20 мест"),
   freeSlotDurationMinutes: z.literal(60),
+  freeSlotDropInPrice: z.coerce
+    .number()
+    .min(0, "Минимум 0 руб."),
   workingHours: z
     .array(gymWorkingHourSchema)
     .length(7, "Нужно указать все дни недели"),

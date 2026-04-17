@@ -5,7 +5,7 @@ import { withPrismaReadRetry } from "@/lib/prisma-read";
 
 type SessionMutationClient = Pick<
   Prisma.TransactionClient,
-  "session" | "booking" | "membership"
+  "session" | "booking" | "membership" | "dropInPass"
 >;
 
 type SessionCancellationRecipient = {
@@ -98,6 +98,20 @@ export async function cancelSessionWithDb(
         },
       })
     : { count: 0 };
+
+  // Каскадная отмена pending drop-in passes для этой сессии.
+  // Paid passes не трогаем — админ решает через refund.
+  await db.dropInPass.updateMany({
+    where: {
+      sessionId,
+      status: "pending",
+    },
+    data: {
+      status: "cancelled",
+      cancelledAt,
+      cancelReason: "session_cancelled",
+    },
+  });
 
   return {
     cancelledBookingsCount: cancelledBookings.count,

@@ -71,6 +71,8 @@ export async function listSessions({
           durationMinutes: true,
           capacity: true,
           cancellationDeadlineHours: true,
+          dropInEnabled: true,
+          dropInPrice: true,
           status: true,
           trainer: {
             select: {
@@ -126,6 +128,8 @@ export async function getSessionById(id: string) {
           durationMinutes: true,
           capacity: true,
           cancellationDeadlineHours: true,
+          dropInEnabled: true,
+          dropInPrice: true,
           status: true,
           version: true,
           bookings: {

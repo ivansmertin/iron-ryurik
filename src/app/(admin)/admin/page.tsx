@@ -14,7 +14,7 @@ import { formatMoscowDate } from "@/lib/formatters";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
 import { markPastSessionsCompleted } from "@/features/sessions/service";
-import { QrCode, Dumbbell, Settings } from "lucide-react";
+import { QrCode, Dumbbell, Settings, Receipt } from "lucide-react";
 
 export default async function AdminDashboardPage() {
   const now = new Date();
@@ -76,6 +76,12 @@ export default async function AdminDashboardPage() {
           },
         });
 
+        const pendingDropInsCount = await prisma.dropInPass.count({
+          where: {
+            status: "pending",
+          },
+        });
+
         const clientCount = await prisma.user.count({
           where: {
             role: "client",
@@ -83,7 +89,7 @@ export default async function AdminDashboardPage() {
           },
         });
 
-        return [todayCount, weekCount, membershipCount, clientCount] as const;
+        return [todayCount, weekCount, membershipCount, pendingDropInsCount, clientCount] as const;
       },
       1,
       "admin.dashboard.stats",
@@ -93,6 +99,7 @@ export default async function AdminDashboardPage() {
       { title: "Сегодня сессий", value: todaySessionsCount },
       { title: "На неделе", value: weekSessionsCount },
       { title: "Активных абонементов", value: activeMembershipsCount },
+      { title: "Ожидают оплаты", value: pendingDropInsCount },
       { title: "Всего клиентов", value: totalClientsCount },
     ];
   } catch (error) {
@@ -111,6 +118,12 @@ export default async function AdminDashboardPage() {
       icon: Dumbbell,
       title: "Упражнения",
       description: "Каталог упражнений для тренировок.",
+    },
+    {
+      href: "/admin/memberships/drop-ins",
+      icon: Receipt,
+      title: "Разовые визиты",
+      description: "Мониторинг оплат и возвратов.",
     },
     {
       href: "/admin/schedule/settings",

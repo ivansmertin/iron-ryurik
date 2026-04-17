@@ -19,6 +19,7 @@ type WorkingHour = {
 
 type GymScheduleSettingsFormProps = {
   freeSlotCapacity: number;
+  freeSlotDropInPrice: number | string;
   workingHours: WorkingHour[];
 };
 
@@ -49,6 +50,7 @@ function getServerFieldError(state: ActionState, fieldName: string) {
 
 export function GymScheduleSettingsForm({
   freeSlotCapacity,
+  freeSlotDropInPrice,
   workingHours,
 }: GymScheduleSettingsFormProps) {
   const [state, formAction, pending] = useActionState(
@@ -66,6 +68,7 @@ export function GymScheduleSettingsForm({
   }, [state]);
 
   const freeSlotCapacityError = getServerFieldError(state, "freeSlotCapacity");
+  const freeSlotDropInPriceError = getServerFieldError(state, "freeSlotDropInPrice");
   const workingHoursError = getServerFieldError(state, "workingHours");
 
   return (
@@ -94,6 +97,20 @@ export function GymScheduleSettingsForm({
             disabled
             readOnly
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="freeSlotDropInPrice">Цена разовой свободной тренировки (₽)</Label>
+          <Input
+            id="freeSlotDropInPrice"
+            name="freeSlotDropInPrice"
+            type="number"
+            min={0}
+            step={50}
+            defaultValue={freeSlotDropInPrice.toString()}
+            aria-invalid={Boolean(freeSlotDropInPriceError)}
+          />
+          <FieldError message={freeSlotDropInPriceError} />
         </div>
       </div>
 

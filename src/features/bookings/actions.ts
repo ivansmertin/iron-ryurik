@@ -35,6 +35,7 @@ export type BookingActionSuccess = {
   sessionTitle: string | null;
   startsAt: string;
   durationMinutes: number;
+  dropInPassId: string | null;
 };
 
 export type BookingActionError = {
@@ -76,6 +77,7 @@ function toSuccessState(
     sessionTitle: result.sessionTitle,
     startsAt: result.startsAt.toISOString(),
     durationMinutes: result.durationMinutes,
+    dropInPassId: (result as BookSessionResult).dropInPassId ?? null,
   };
 }
 

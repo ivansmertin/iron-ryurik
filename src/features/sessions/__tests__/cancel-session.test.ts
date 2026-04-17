@@ -47,6 +47,9 @@ describe("cancelSessionWithDb", () => {
       membership: {
         update: vi.fn().mockResolvedValue({}),
       },
+      dropInPass: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
     };
 
     const result = await cancelSessionWithDb(

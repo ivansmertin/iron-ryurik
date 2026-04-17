@@ -39,6 +39,7 @@ export default async function ScheduleSettingsPage({
         <CardContent>
           <GymScheduleSettingsForm
             freeSlotCapacity={settings.freeSlotCapacity}
+            freeSlotDropInPrice={settings.freeSlotDropInPrice}
             workingHours={workingHours}
           />
         </CardContent>

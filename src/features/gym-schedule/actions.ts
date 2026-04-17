@@ -30,6 +30,7 @@ function getScheduleSettingsPayload(formData: FormData) {
   return {
     freeSlotCapacity: String(formData.get("freeSlotCapacity") ?? ""),
     freeSlotDurationMinutes: 60 as const,
+    freeSlotDropInPrice: String(formData.get("freeSlotDropInPrice") ?? "0"),
     workingHours: Array.from({ length: 7 }, (_, index) => {
       const weekday = index + 1;
 

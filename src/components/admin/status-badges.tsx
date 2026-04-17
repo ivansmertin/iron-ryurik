@@ -6,6 +6,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import {
   bookingStatusLabels,
+  dropInStatusLabels,
   membershipStatusLabels,
   sessionStatusLabels,
 } from "@/lib/formatters";
@@ -68,6 +69,28 @@ export function MembershipStatusBadge({
 
 export function BookingStatusBadge({ status }: { status: BookingStatus }) {
   return <Badge variant={getBookingVariant(status)}>{bookingStatusLabels[status]}</Badge>;
+}
+
+export function DropInStatusBadge({ status }: { status: string }) {
+  const getDropInVariant = (s: string) => {
+    switch (s) {
+      case "paid":
+        return "default" as const;
+      case "pending":
+        return "secondary" as const;
+      case "cancelled":
+        return "destructive" as const;
+      case "refunded":
+      default:
+        return "outline" as const;
+    }
+  };
+
+  return (
+    <Badge variant={getDropInVariant(status)}>
+      {dropInStatusLabels[status] || status}
+    </Badge>
+  );
 }
 
 export function BooleanBadge({
