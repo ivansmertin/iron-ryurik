@@ -2,6 +2,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
 import { getMoscowWeekRange } from "@/lib/datetime";
+import {
+  isPrismaSchemaMismatchError,
+  logPrismaSchemaWarningOnce,
+} from "@/lib/prisma-errors";
 import { activeBookingStatuses } from "./service";
 
 export const clientSchedulePeriods = ["this-week", "next-week", "later"] as const;
@@ -115,6 +119,92 @@ export function getScheduleRange(period: ClientSchedulePeriod, now: Date) {
         start: now,
         end: currentWeekRange.end,
       } as const;
+  }
+}
+
+function getClientScheduleSessionsWhere(start: Date, end?: Date) {
+  return {
+    type: "group" as const,
+    status: "scheduled" as const,
+    startsAt: end
+      ? {
+          gte: start,
+          lt: end,
+        }
+      : {
+          gte: start,
+        },
+  };
+}
+
+async function listClientScheduleSessionsWithSchemaFallback(
+  start: Date,
+  end?: Date,
+) {
+  const where = getClientScheduleSessionsWhere(start, end);
+  const orderBy = { startsAt: "asc" as const };
+  const bookingsSelect = {
+    where: {
+      status: {
+        in: [...activeBookingStatuses],
+      },
+    },
+    select: {
+      userId: true,
+    },
+  };
+
+  try {
+    return await prisma.session.findMany({
+      where,
+      orderBy,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        startsAt: true,
+        durationMinutes: true,
+        capacity: true,
+        dropInEnabled: true,
+        dropInPrice: true,
+        bookings: bookingsSelect,
+      },
+    });
+  } catch (error) {
+    if (
+      !isPrismaSchemaMismatchError(error, {
+        modelName: "Session",
+        columnFragment: ["dropInEnabled", "dropInPrice"],
+      })
+    ) {
+      throw error;
+    }
+
+    logPrismaSchemaWarningOnce(
+      "bookings.getClientScheduleData",
+      "Session.dropInColumns-missing",
+      error,
+    );
+
+    const legacySessions = await prisma.session.findMany({
+      where,
+      orderBy,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        startsAt: true,
+        durationMinutes: true,
+        capacity: true,
+        bookings: bookingsSelect,
+      },
+    });
+
+    return legacySessions.map((session) => ({
+      ...session,
+      dropInEnabled: false,
+      dropInPrice: null,
+    }));
   }
 }
 
@@ -266,43 +356,10 @@ export async function getClientScheduleData(
           membership.availableSessions > 0
         ) ?? null;
 
-      const sessions = await prisma.session.findMany({
-        where: {
-          type: "group",
-          status: "scheduled",
-          startsAt: end
-            ? {
-                gte: start,
-                lt: end,
-              }
-            : {
-                gte: start,
-              },
-        },
-        orderBy: {
-          startsAt: "asc",
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          startsAt: true,
-          durationMinutes: true,
-          capacity: true,
-          dropInEnabled: true,
-          dropInPrice: true,
-          bookings: {
-            where: {
-              status: {
-                in: [...activeBookingStatuses],
-              },
-            },
-            select: {
-              userId: true,
-            },
-          },
-        },
-      });
+      const sessions = await listClientScheduleSessionsWithSchemaFallback(
+        start,
+        end,
+      );
 
       return {
         sessions,

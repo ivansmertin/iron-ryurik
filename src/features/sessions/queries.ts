@@ -2,6 +2,10 @@ import type { Prisma } from "@prisma/client";
 import { activeBookingStatuses } from "@/features/bookings/service";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
+import {
+  isPrismaSchemaMismatchError,
+  logPrismaSchemaWarningOnce,
+} from "@/lib/prisma-errors";
 
 export const sessionListTabs = ["upcoming", "past", "cancelled"] as const;
 
@@ -44,6 +48,78 @@ function getSessionWhereClause(tab: SessionListTab): Prisma.SessionWhereInput {
   }
 }
 
+const listSessionsLegacySelect = {
+  id: true,
+  title: true,
+  origin: true,
+  autoSlotKey: true,
+  startsAt: true,
+  durationMinutes: true,
+  capacity: true,
+  cancellationDeadlineHours: true,
+  status: true,
+  trainer: {
+    select: {
+      id: true,
+      fullName: true,
+    },
+  },
+  bookings: {
+    where: {
+      status: {
+        in: [...activeBookingStatuses],
+      },
+    },
+    select: {
+      id: true,
+    },
+  },
+} satisfies Prisma.SessionSelect;
+
+const listSessionsSelect = {
+  ...listSessionsLegacySelect,
+  dropInEnabled: true,
+  dropInPrice: true,
+} satisfies Prisma.SessionSelect;
+
+const sessionByIdLegacySelect = {
+  id: true,
+  title: true,
+  description: true,
+  trainerId: true,
+  origin: true,
+  autoSlotKey: true,
+  startsAt: true,
+  durationMinutes: true,
+  capacity: true,
+  cancellationDeadlineHours: true,
+  status: true,
+  version: true,
+  bookings: {
+    where: {
+      status: {
+        in: [...activeBookingStatuses],
+      },
+    },
+    select: {
+      id: true,
+    },
+  },
+} satisfies Prisma.SessionSelect;
+
+const sessionByIdSelect = {
+  ...sessionByIdLegacySelect,
+  dropInEnabled: true,
+  dropInPrice: true,
+} satisfies Prisma.SessionSelect;
+
+function isSessionDropInColumnsSchemaMismatch(error: unknown) {
+  return isPrismaSchemaMismatchError(error, {
+    modelName: "Session",
+    columnFragment: ["dropInEnabled", "dropInPrice"],
+  });
+}
+
 export async function listSessions({
   page,
   pageSize,
@@ -57,41 +133,41 @@ export async function listSessions({
   const result = await withPrismaReadRetry(
     async () => {
       const total = await prisma.session.count({ where });
-      const items = await prisma.session.findMany({
-        where,
-        orderBy,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          title: true,
-          origin: true,
-          autoSlotKey: true,
-          startsAt: true,
-          durationMinutes: true,
-          capacity: true,
-          cancellationDeadlineHours: true,
-          dropInEnabled: true,
-          dropInPrice: true,
-          status: true,
-          trainer: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          bookings: {
-            where: {
-              status: {
-                in: [...activeBookingStatuses],
-              },
-            },
-            select: {
-              id: true,
-            },
-          },
-        },
-      });
+      let items;
+
+      try {
+        items = await prisma.session.findMany({
+          where,
+          orderBy,
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: listSessionsSelect,
+        });
+      } catch (error) {
+        if (!isSessionDropInColumnsSchemaMismatch(error)) {
+          throw error;
+        }
+
+        logPrismaSchemaWarningOnce(
+          "sessions.listSessions",
+          "Session.dropInColumns-missing",
+          error,
+        );
+
+        const legacyItems = await prisma.session.findMany({
+          where,
+          orderBy,
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: listSessionsLegacySelect,
+        });
+
+        items = legacyItems.map((session) => ({
+          ...session,
+          dropInEnabled: false,
+          dropInPrice: null,
+        }));
+      }
 
       return {
         total,
@@ -111,39 +187,44 @@ export async function listSessions({
 
 export async function getSessionById(id: string) {
   return withPrismaReadRetry(
-    () =>
-      prisma.session.findFirst({
-        where: {
-          id,
-          type: "group",
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          trainerId: true,
-          origin: true,
-          autoSlotKey: true,
-          startsAt: true,
-          durationMinutes: true,
-          capacity: true,
-          cancellationDeadlineHours: true,
-          dropInEnabled: true,
-          dropInPrice: true,
-          status: true,
-          version: true,
-          bookings: {
-            where: {
-              status: {
-                in: [...activeBookingStatuses],
-              },
-            },
-            select: {
-              id: true,
-            },
-          },
-        },
-      }),
+    async () => {
+      const where = {
+        id,
+        type: "group" as const,
+      };
+
+      try {
+        return await prisma.session.findFirst({
+          where,
+          select: sessionByIdSelect,
+        });
+      } catch (error) {
+        if (!isSessionDropInColumnsSchemaMismatch(error)) {
+          throw error;
+        }
+
+        logPrismaSchemaWarningOnce(
+          "sessions.getSessionById",
+          "Session.dropInColumns-missing",
+          error,
+        );
+
+        const session = await prisma.session.findFirst({
+          where,
+          select: sessionByIdLegacySelect,
+        });
+
+        if (!session) {
+          return null;
+        }
+
+        return {
+          ...session,
+          dropInEnabled: false,
+          dropInPrice: null,
+        };
+      }
+    },
     1,
     "sessions.getSessionById",
   );

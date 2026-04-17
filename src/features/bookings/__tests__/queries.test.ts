@@ -125,4 +125,42 @@ describe("client booking membership queries", () => {
       }),
     );
   });
+
+  it("falls back to legacy session schema when dropIn columns are missing", async () => {
+    prismaMock.membership.findMany.mockResolvedValue([]);
+    prismaMock.session.findMany
+      .mockRejectedValueOnce({
+        code: "P2022",
+        meta: { modelName: "Session" },
+        message: "The column `Session.dropInEnabled` does not exist",
+      })
+      .mockResolvedValueOnce([
+        {
+          id: "session-1",
+          title: "Group Run",
+          description: "Legacy schema row",
+          startsAt: new Date("2026-04-15T10:00:00.000Z"),
+          durationMinutes: 60,
+          capacity: 12,
+          bookings: [{ userId: "user-2" }],
+        },
+      ]);
+
+    const result = await getClientScheduleData("user-1", "this-week", now);
+
+    expect(prismaMock.session.findMany).toHaveBeenCalledTimes(2);
+    expect(result.sessions).toEqual([
+      {
+        id: "session-1",
+        title: "Group Run",
+        description: "Legacy schema row",
+        startsAt: new Date("2026-04-15T10:00:00.000Z"),
+        durationMinutes: 60,
+        capacity: 12,
+        dropInEnabled: false,
+        dropInPrice: null,
+        bookings: [{ userId: "user-2" }],
+      },
+    ]);
+  });
 });

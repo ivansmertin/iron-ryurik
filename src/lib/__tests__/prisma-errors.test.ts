@@ -1,11 +1,19 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
+  __resetPrismaSchemaWarningCacheForTests,
   isTransientPrismaConnectionError,
+  isPrismaSchemaMismatchError,
   getDatabaseActionErrorMessage,
+  logPrismaSchemaWarningOnce,
   logPrismaError,
 } from "../prisma-errors";
 
 describe("Prisma Errors Utility", () => {
+  beforeEach(() => {
+    __resetPrismaSchemaWarningCacheForTests();
+    vi.restoreAllMocks();
+  });
+
   describe("isTransientPrismaConnectionError", () => {
     it("identifies known transient error codes", () => {
       expect(isTransientPrismaConnectionError({ code: "P1001" })).toBe(true);
@@ -26,6 +34,58 @@ describe("Prisma Errors Utility", () => {
       expect(isTransientPrismaConnectionError({ code: "P2002" })).toBe(false);
       expect(isTransientPrismaConnectionError(new Error("Unique constraint failed"))).toBe(false);
       expect(isTransientPrismaConnectionError(null)).toBe(false);
+    });
+  });
+
+  describe("isPrismaSchemaMismatchError", () => {
+    it("identifies schema mismatch by code", () => {
+      expect(
+        isPrismaSchemaMismatchError({
+          code: "P2021",
+          meta: { modelName: "DropInPass" },
+        }),
+      ).toBe(true);
+      expect(
+        isPrismaSchemaMismatchError({
+          code: "P2022",
+          meta: { modelName: "Session" },
+        }),
+      ).toBe(true);
+    });
+
+    it("filters by modelName", () => {
+      const error = {
+        code: "P2021",
+        meta: { modelName: "DropInPass" },
+      };
+
+      expect(
+        isPrismaSchemaMismatchError(error, { modelName: "DropInPass" }),
+      ).toBe(true);
+      expect(
+        isPrismaSchemaMismatchError(error, { modelName: "Session" }),
+      ).toBe(false);
+    });
+
+    it("filters by column fragment from error message", () => {
+      const error = {
+        code: "P2022",
+        meta: { modelName: "Session" },
+        message: "The column `Session.dropInEnabled` does not exist",
+      };
+
+      expect(
+        isPrismaSchemaMismatchError(error, {
+          modelName: "Session",
+          columnFragment: "dropInEnabled",
+        }),
+      ).toBe(true);
+      expect(
+        isPrismaSchemaMismatchError(error, {
+          modelName: "Session",
+          columnFragment: "dropInPrice",
+        }),
+      ).toBe(false);
     });
   });
 
@@ -79,6 +139,26 @@ describe("Prisma Errors Utility", () => {
       );
       
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe("logPrismaSchemaWarningOnce", () => {
+    it("logs only once for the same context + signature", () => {
+      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const error = { code: "P2021", message: "Table missing" };
+
+      expect(
+        logPrismaSchemaWarningOnce("test.context", "drop-in-mismatch", error),
+      ).toBe(true);
+      expect(
+        logPrismaSchemaWarningOnce("test.context", "drop-in-mismatch", error),
+      ).toBe(false);
+
+      expect(consoleSpy).toHaveBeenCalledTimes(1);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[test.context] Prisma schema drift detected (drop-in-mismatch)",
+        error,
+      );
     });
   });
 });

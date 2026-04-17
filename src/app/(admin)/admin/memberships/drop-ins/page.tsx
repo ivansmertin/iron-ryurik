@@ -39,7 +39,7 @@ export default async function DropInsAdminPage({
   const page = Number(getSearchParamValue(resolvedSearchParams.page) || "1");
   const statusFilter = getSearchParamValue(resolvedSearchParams.status) || "all";
   
-  const { items, totalPages } = await listDropInPasses({
+  const { items, totalPages, schemaReady } = await listDropInPasses({
     page,
     pageSize: 20,
     status: statusFilter === "all" ? undefined : statusFilter,
@@ -55,6 +55,27 @@ export default async function DropInsAdminPage({
     href: `/admin/memberships/drop-ins?status=${tab.value}`,
     isActive: statusFilter === tab.value,
   }));
+
+  if (!schemaReady) {
+    return (
+      <div className="space-y-6">
+        <AdminToastListener toastKey={toastKey} />
+
+        <PageHeader
+          title="РћРїР»Р°С‚Р°"
+          description="РЈРїСЂР°РІР»РµРЅРёРµ РїР»Р°РЅР°РјРё Р°Р±РѕРЅРµРјРµРЅС‚РѕРІ Рё СЂР°Р·РѕРІС‹РјРё РІРёР·РёС‚Р°РјРё."
+        />
+
+        <TabLinks items={sectionTabs} />
+
+        <Card className="border-border/70 shadow-sm">
+          <CardContent className="py-8 text-sm text-muted-foreground">
+            Разовые визиты временно недоступны, выполняется обновление БД.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
