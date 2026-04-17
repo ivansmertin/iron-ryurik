@@ -14,7 +14,7 @@ const ACTIVE_BOOKING_STATUSES = ["pending", "completed", "no_show"] as const;
 export const FREE_SLOT_TITLE = "Свободная тренировка";
 export const FREE_SLOT_DURATION_MINUTES = 60;
 export const FREE_SLOT_CAPACITY = 8;
-export const FREE_SLOT_HORIZON_WEEKS_AHEAD = 8;
+export const FREE_SLOT_HORIZON_WEEKS_AHEAD = 1;
 
 export type GymWorkingHourInput = {
   weekday: number;
@@ -247,6 +247,11 @@ export async function reconcileFreeSlotsWithDb(
       startsAt: true,
       durationMinutes: true,
       status: true,
+      title: true,
+      capacity: true,
+      description: true,
+      trainerId: true,
+      cancellationDeadlineHours: true,
       bookings: {
         where: {
           status: {
@@ -304,7 +309,30 @@ export async function reconcileFreeSlotsWithDb(
       .map((session) => [session.autoSlotKey as string, session]),
   );
 
-  for (const candidate of desiredCandidates) {
+  // Оптимизация: отфильтруем только те кандидаты, которые реально нужно создать или обновить.
+  // Это значительно уменьшит количество запросов к БД, особенно при каждом просмотре расписания.
+  const candidatesToUpsert = desiredCandidates.filter((candidate) => {
+    const existing = existingFreeSlotsByKey.get(candidate.autoSlotKey);
+    if (!existing) return true;
+
+    const activeBookingsCount = existing.bookings.length;
+    const targetCapacity = activeBookingsCount
+      ? Math.max(candidate.capacity, activeBookingsCount)
+      : candidate.capacity;
+
+    // Проверяем, изменилось ли что-то существенное, чтобы не дергать базу лишний раз
+    return (
+      existing.status !== "scheduled" ||
+      (activeBookingsCount === 0 && existing.durationMinutes !== candidate.durationMinutes) ||
+      existing.capacity !== targetCapacity ||
+      existing.title !== FREE_SLOT_TITLE ||
+      existing.description !== null ||
+      existing.trainerId !== null ||
+      existing.cancellationDeadlineHours !== 2
+    );
+  });
+
+  for (const candidate of candidatesToUpsert) {
     const existing = existingFreeSlotsByKey.get(candidate.autoSlotKey);
     const activeBookingsCount = existing?.bookings.length ?? 0;
 
