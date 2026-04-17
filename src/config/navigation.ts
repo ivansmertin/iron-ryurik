@@ -8,7 +8,8 @@ export type IconName =
   | "users"
   | "credit-card"
   | "dumbbell"
-  | "qr-code";
+  | "qr-code"
+  | "settings";
 
 export interface NavLink {
   href: string;
@@ -26,6 +27,7 @@ export const clientLinks: NavLink[] = [
 
 export const trainerLinks: NavLink[] = [
   { href: "/trainer", label: "Главная", icon: "home" },
+  { href: "/trainer/schedule", label: "Расписание", icon: "calendar" },
   { href: "/trainer/slots", label: "Слоты", icon: "clock" },
   { href: "/trainer/scan", label: "QR", icon: "qr-code" },
   { href: "/trainer/clients", label: "Клиенты", icon: "users" },
@@ -37,5 +39,6 @@ export const adminLinks: NavLink[] = [
   { href: "/admin/clients", label: "Клиенты", icon: "users" },
   { href: "/admin/memberships", label: "Абонементы", icon: "credit-card" },
   { href: "/admin/exercises", label: "Упражнения", icon: "dumbbell" },
+  { href: "/admin/schedule/settings", label: "Настройки зала", icon: "settings" },
   { href: "/admin/profile", label: "Профиль", icon: "user" },
 ];

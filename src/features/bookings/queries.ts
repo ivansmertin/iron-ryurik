@@ -95,7 +95,7 @@ function addMembershipAvailability<
   };
 }
 
-function getScheduleRange(period: ClientSchedulePeriod, now: Date) {
+export function getScheduleRange(period: ClientSchedulePeriod, now: Date) {
   const currentWeekRange = getMoscowWeekRange(0, now);
   const nextWeekRange = getMoscowWeekRange(1, now);
 

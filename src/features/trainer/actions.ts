@@ -338,3 +338,53 @@ export async function updateTrainerClientNotes(
 
   redirect(`/trainer/clients/${clientId}/notes?toast=notes-updated`);
 }
+
+export async function claimFreeSlot(
+  sessionId: string,
+  prevState?: ActionState,
+): Promise<ActionState> {
+  void prevState;
+  const user = await requireUser("trainer");
+  const startedAt = Date.now();
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const session = await tx.session.findFirst({
+        where: {
+          id: sessionId,
+          type: "group",
+          origin: "auto_free",
+          status: "scheduled",
+        },
+        select: { id: true, version: true },
+      });
+
+      if (!session) {
+        throw new Error("Слот не найден или уже занят другим тренером.");
+      }
+
+      await tx.session.update({
+        where: { id: sessionId, version: session.version },
+        data: {
+          origin: "manual",
+          autoSlotKey: null,
+          trainerId: user.id,
+          version: { increment: 1 },
+        },
+      });
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Слот не найден")) {
+      return getActionError(error.message);
+    }
+    logPrismaError("trainer.claimFreeSlot", error, startedAt);
+    return getActionError(
+      getDatabaseActionErrorMessage(error, "Не удалось занять слот. Попробуйте ещё раз."),
+    );
+  }
+
+  revalidatePath("/trainer/schedule");
+  revalidatePath("/trainer");
+
+  redirect(`/trainer/schedule?toast=slot-claimed`);
+}

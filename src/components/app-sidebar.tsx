@@ -15,6 +15,7 @@ import {
   Dumbbell,
   QrCode,
   Circle,
+  Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Logo } from "@/components/logo";
@@ -35,6 +36,7 @@ const iconMap: Partial<Record<IconName, LucideIcon>> = {
   "credit-card": CreditCard,
   dumbbell: Dumbbell,
   "qr-code": QrCode,
+  settings: Settings,
 };
 
 function useActiveHref(links: NavLink[]) {
