@@ -11,6 +11,7 @@ describe("navigation", () => {
   it("оставляет trainer-меню без dead-end ссылок", () => {
     expect(trainerLinks.map((l) => l.href)).toEqual([
       "/trainer",
+      "/trainer/schedule",
       "/trainer/slots",
       "/trainer/scan",
       "/trainer/clients",
