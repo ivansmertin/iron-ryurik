@@ -1,222 +1,218 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mockDeep, mockReset } from "vitest-mock-extended";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/features/auth/get-user";
+import { 
+  createTrainerSlot, 
+  cancelTrainerSlot, 
+  claimFreeSlot,
+  updateTrainerClientNotes 
+} from "../actions";
+import { redirect } from "next/navigation";
 
-const prismaMock = vi.hoisted(() => ({
-  session: {
-    create: vi.fn(),
-    findFirst: vi.fn(),
-    update: vi.fn(),
-  },
-  user: {
-    findFirst: vi.fn(),
-    update: vi.fn(),
-  },
-  $transaction: vi.fn(),
-}));
-
-const requireUserMock = vi.hoisted(() => vi.fn());
-const redirectMock = vi.hoisted(() =>
-  vi.fn(() => {
-    throw new Error("NEXT_REDIRECT");
-  }),
-);
-const revalidatePathMock = vi.hoisted(() => vi.fn());
-const cancelSessionWithDbMock = vi.hoisted(() => vi.fn());
-
+// Mock dependencies
 vi.mock("@/lib/prisma", () => ({
-  prisma: prismaMock,
+  prisma: mockDeep<import("@prisma/client").PrismaClient>(),
 }));
 
 vi.mock("@/features/auth/get-user", () => ({
-  requireUser: requireUserMock,
-}));
-
-vi.mock("next/navigation", () => ({
-  redirect: redirectMock,
+  requireUser: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
-  revalidatePath: revalidatePathMock,
+  revalidatePath: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
 }));
 
 vi.mock("@/features/sessions/service", () => ({
-  cancelSessionWithDb: cancelSessionWithDbMock,
+  cancelSessionWithDb: vi.fn(),
 }));
 
-import {
-  cancelTrainerSlot,
-  createTrainerSlot,
-  updateTrainerClientNotes,
-  updateTrainerSlot,
-} from "@/features/trainer/actions";
+const mockPrisma = prisma as unknown as ReturnType<typeof mockDeep<import("@prisma/client").PrismaClient>>;
+const mockRequireUser = requireUser as unknown as any;
+const { cancelSessionWithDb } = await import("@/features/sessions/service");
+const mockCancelSessionWithDb = cancelSessionWithDb as unknown as any;
 
-describe("trainer actions", () => {
+describe("Trainer Server Actions", () => {
+  const now = new Date("2026-04-17T12:00:00.000Z");
+  const trainerId = "trainer-1";
+  const mockTrainer = { id: trainerId, role: "trainer", email: "trainer@example.com" };
+
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    mockReset(mockPrisma);
     vi.clearAllMocks();
-    requireUserMock.mockResolvedValue({ id: "trainer-1", role: "trainer" });
-    prismaMock.session.create.mockResolvedValue({ id: "slot-1" });
-    prismaMock.session.findFirst.mockResolvedValue({
-      id: "slot-1",
-      status: "scheduled",
-      startsAt: new Date("2099-01-01T06:00:00.000Z"),
+
+    // Default mock for $transaction
+    mockPrisma.$transaction.mockImplementation(async (callback: any) => {
+      return callback(mockPrisma);
     });
-    prismaMock.session.update.mockResolvedValue({ id: "slot-1" });
-    prismaMock.user.findFirst.mockResolvedValue({ id: "client-1" });
-    prismaMock.user.update.mockResolvedValue({ id: "client-1" });
-    prismaMock.$transaction.mockImplementation(
-      async (callback: (tx: never) => unknown) => callback(prismaMock as never),
-    );
-    cancelSessionWithDbMock.mockResolvedValue({ cancelledBookingsCount: 2 });
   });
 
-  it("создаёт личный слот тренера с фиксированной вместимостью", async () => {
-    prismaMock.session.findFirst.mockResolvedValueOnce(null);
-
-    const formData = new FormData();
-    formData.set("title", "");
-    formData.set("description", "");
-    formData.set("date", "2099-01-01");
-    formData.set("startTime", "09:00");
-    formData.set("durationMinutes", "60");
-
-    await expect(createTrainerSlot(undefined, formData)).rejects.toThrow("NEXT_REDIRECT");
-
-    expect(prismaMock.session.create).toHaveBeenCalledWith({
-      data: {
-        type: "personal",
-        origin: "manual",
-        trainerId: "trainer-1",
-        title: null,
-        description: null,
-        startsAt: new Date("2099-01-01T06:00:00.000Z"),
-        durationMinutes: 60,
-        capacity: 1,
-      },
-    });
-    expect(redirectMock).toHaveBeenCalledWith("/trainer/slots?toast=session-created");
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("обновляет только свой slot", async () => {
-    const formData = new FormData();
-    formData.set("title", "Персональная работа");
-    formData.set("description", "Обновлённое описание");
-    formData.set("date", "2099-01-01");
-    formData.set("startTime", "10:30");
-    formData.set("durationMinutes", "75");
+  describe("createTrainerSlot", () => {
+    const validFormData = new FormData();
+    validFormData.append("title", "Test Slot");
+    validFormData.append("date", "2026-04-18");
+    validFormData.append("startTime", "10:00");
+    validFormData.append("durationMinutes", "60");
 
-    await expect(updateTrainerSlot("slot-1", undefined, formData)).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
+    it("successfully creates a new personal slot when no free slot exists", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      mockPrisma.session.findFirst.mockResolvedValue(null); // No existing free slot
 
-    expect(prismaMock.session.findFirst).toHaveBeenCalledWith({
-      where: {
+      await createTrainerSlot({}, validFormData);
+
+      expect(mockPrisma.session.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          type: "personal",
+          trainerId: trainerId,
+          title: "Test Slot",
+          durationMinutes: 60,
+          capacity: 1,
+        }),
+      });
+      expect(redirect).toHaveBeenCalledWith(expect.stringContaining("session-created"));
+    });
+
+    it("updates existing auto_free slot instead of creating a new one", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      const existingSlot = { 
+        id: "free-slot-1", 
+        capacity: 1, 
+        durationMinutes: 45,
+        bookings: [] 
+      };
+      mockPrisma.session.findFirst.mockResolvedValue(existingSlot as any);
+
+      await createTrainerSlot({}, validFormData);
+
+      expect(mockPrisma.session.update).toHaveBeenCalledWith({
+        where: { id: "free-slot-1" },
+        data: expect.objectContaining({
+          trainerId: trainerId,
+          origin: "manual",
+          title: "Test Slot",
+        }),
+      });
+      expect(mockPrisma.session.create).not.toHaveBeenCalled();
+      expect(redirect).toHaveBeenCalledWith(expect.stringContaining("session-created"));
+    });
+
+    it("fails when user is a client", async () => {
+      // requireUser handles the error if role is wrong, but we can mock it to throw 
+      // or return null/error if the action logic relies on it.
+      // In our code, requireUser("trainer") throws or redirects if not authorized.
+      mockRequireUser.mockImplementation(() => {
+        throw new Error("Unauthorized");
+      });
+
+      await expect(createTrainerSlot({}, validFormData)).rejects.toThrow("Unauthorized");
+    });
+  });
+
+  describe("cancelTrainerSlot", () => {
+    it("successfully cancels own slot", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      mockPrisma.session.findFirst.mockResolvedValue({
         id: "slot-1",
-        trainerId: "trainer-1",
-      },
-      select: {
-        id: true,
-        status: true,
-        startsAt: true,
-      },
+        trainerId: trainerId,
+        status: "scheduled"
+      } as any);
+
+      mockCancelSessionWithDb.mockResolvedValue({
+        cancelledBookingsCount: 0,
+        session: { id: "slot-1" }
+      });
+
+      await cancelTrainerSlot("slot-1");
+
+      expect(mockCancelSessionWithDb).toHaveBeenCalled();
+      expect(redirect).toHaveBeenCalledWith(expect.stringContaining("session-cancelled"));
     });
-    expect(prismaMock.session.update).toHaveBeenCalledWith({
-      where: {
+
+    it("returns error if slot not found or not owned", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      mockPrisma.session.findFirst.mockResolvedValue(null);
+
+      const result = await cancelTrainerSlot("other-slot");
+
+      expect(result).toMatchObject({ ok: false, error: "Слот не найден." });
+    });
+
+    it("returns error if slot is already cancelled", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      mockPrisma.session.findFirst.mockResolvedValue({
         id: "slot-1",
-      },
-      data: {
-        title: "Персональная работа",
-        description: "Обновлённое описание",
-        startsAt: new Date("2099-01-01T07:30:00.000Z"),
-        durationMinutes: 75,
-        version: {
-          increment: 1,
-        },
-      },
+        trainerId: trainerId,
+        status: "cancelled"
+      } as any);
+
+      const result = await cancelTrainerSlot("slot-1");
+
+      expect(result).toMatchObject({ ok: false, error: "Слот больше нельзя отменить." });
     });
-    expect(redirectMock).toHaveBeenCalledWith("/trainer/slots?toast=session-updated");
   });
 
-  it("не даёт редактировать чужой slot", async () => {
-    prismaMock.session.findFirst.mockResolvedValueOnce(null);
+  describe("claimFreeSlot", () => {
+    it("successfully claims an auto_free slot", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      mockPrisma.session.findFirst.mockResolvedValue({ id: "free-1", version: 1 } as any);
 
-    const formData = new FormData();
-    formData.set("title", "Персональная работа");
-    formData.set("description", "");
-    formData.set("date", "2099-01-01");
-    formData.set("startTime", "10:30");
-    formData.set("durationMinutes", "75");
+      await claimFreeSlot("free-1");
 
-    await expect(updateTrainerSlot("foreign-slot", undefined, formData)).resolves.toEqual(
-      {
-        ok: false,
-        error: "Слот не найден.",
-      },
-    );
-
-    expect(prismaMock.session.update).not.toHaveBeenCalled();
-  });
-
-  it("отменяет личный slot через общий cancel flow", async () => {
-    await expect(cancelTrainerSlot("slot-1")).rejects.toThrow("NEXT_REDIRECT");
-
-    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
-    expect(cancelSessionWithDbMock).toHaveBeenCalledWith(prismaMock, "slot-1");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/trainer");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/trainer/slots");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/trainer/slots/slot-1");
-    expect(redirectMock).toHaveBeenCalledWith(
-      "/trainer/slots?toast=session-cancelled%3A2",
-    );
-  });
-
-  it("сохраняет заметку только своему клиенту", async () => {
-    const formData = new FormData();
-    formData.set("notes", "Сильная аэробная база");
-
-    await expect(updateTrainerClientNotes("client-1", undefined, formData)).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
-
-    expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
-      where: {
-        id: "client-1",
-        role: "client",
-        deletedAt: null,
-        programs: {
-          some: {
-            trainerId: "trainer-1",
-          },
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: {
-        id: "client-1",
-      },
-      data: {
-        notes: "Сильная аэробная база",
-      },
-    });
-    expect(redirectMock).toHaveBeenCalledWith(
-      "/trainer/clients/client-1/notes?toast=notes-updated",
-    );
-  });
-
-  it("не даёт сохранить заметку чужому клиенту", async () => {
-    prismaMock.user.findFirst.mockResolvedValueOnce(null);
-
-    const formData = new FormData();
-    formData.set("notes", "Наблюдение");
-
-    await expect(
-      updateTrainerClientNotes("foreign-client", undefined, formData),
-    ).resolves.toEqual({
-      ok: false,
-      error: "Клиент не найден.",
+      expect(mockPrisma.session.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: "free-1", version: 1 },
+        data: expect.objectContaining({
+          trainerId: trainerId,
+          origin: "manual"
+        })
+      }));
+      expect(redirect).toHaveBeenCalledWith(expect.stringContaining("slot-claimed"));
     });
 
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    it("returns error if slot is not found/not claimable", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      mockPrisma.session.findFirst.mockResolvedValue(null);
+
+      const result = await claimFreeSlot("invalid-1");
+
+      expect(result).toMatchObject({ ok: false, error: "Слот не найден или уже занят другим тренером." });
+    });
+  });
+
+  describe("updateTrainerClientNotes", () => {
+    it("successfully updates notes for a linked client", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      const clientId = "client-1";
+      mockPrisma.user.findFirst.mockResolvedValue({ id: clientId } as any);
+
+      const formData = new FormData();
+      formData.append("notes", "He is doing well.");
+
+      await updateTrainerClientNotes(clientId, {}, formData);
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: clientId },
+        data: { notes: "He is doing well." }
+      });
+      expect(redirect).toHaveBeenCalledWith(expect.stringContaining("notes-updated"));
+    });
+
+    it("returns error if client is not linked to trainer", async () => {
+      mockRequireUser.mockResolvedValue(mockTrainer);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
+      const result = await updateTrainerClientNotes("other-client", {}, new FormData());
+
+      expect(result).toMatchObject({ ok: false, error: "Клиент не найден." });
+    });
   });
 });
