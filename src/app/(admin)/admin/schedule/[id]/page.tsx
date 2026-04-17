@@ -8,8 +8,9 @@ import {
 } from "@/lib/datetime";
 import { formatMoscowDateTime } from "@/lib/formatters";
 import { CancelSessionButton } from "@/features/sessions/components/cancel-session-button";
+import { ReturnFreeSlotButton } from "@/features/sessions/components/return-free-slot-button";
 import { SessionForm } from "@/features/sessions/components/session-form";
-import { getSessionById } from "@/features/sessions/queries";
+import { getSessionById, listSessionTrainers } from "@/features/sessions/queries";
 
 type SessionDetailsPageProps = {
   params: Promise<{ id: string }>;
@@ -19,7 +20,10 @@ export default async function SessionDetailsPage({
   params,
 }: SessionDetailsPageProps) {
   const { id } = await params;
-  const session = await getSessionById(id);
+  const [session, trainers] = await Promise.all([
+    getSessionById(id),
+    listSessionTrainers(),
+  ]);
 
   if (!session) {
     notFound();
@@ -34,7 +38,12 @@ export default async function SessionDetailsPage({
         description={formatMoscowDateTime(session.startsAt)}
         actions={
           session.status === "scheduled" ? (
-            <CancelSessionButton sessionId={session.id} buttonLabel="Отменить занятие" />
+            <div className="flex flex-wrap gap-2">
+              {session.origin === "manual" && session.startsAt > new Date() ? (
+                <ReturnFreeSlotButton sessionId={session.id} />
+              ) : null}
+              <CancelSessionButton sessionId={session.id} buttonLabel="Отменить занятие" />
+            </div>
           ) : null
         }
       />
@@ -56,10 +65,12 @@ export default async function SessionDetailsPage({
             defaultValues={{
               title: session.title ?? "",
               description: session.description ?? "",
+              trainerId: session.trainerId ?? "",
               date: getMoscowDateInputValue(session.startsAt),
               startTime: getMoscowTimeInputValue(session.startsAt),
               durationMinutes: session.durationMinutes,
               capacity: session.capacity,
+              cancellationDeadlineHours: session.cancellationDeadlineHours,
             }}
             updateOptions={{
               hasActiveBookings: activeBookingsCount > 0,
@@ -68,6 +79,7 @@ export default async function SessionDetailsPage({
               currentDurationMinutes: session.durationMinutes,
               currentCapacity: session.capacity,
             }}
+            trainers={trainers}
           />
         </CardContent>
       </Card>

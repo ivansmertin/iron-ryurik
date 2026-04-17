@@ -96,7 +96,7 @@ function toErrorState(error: unknown): BookingActionError {
     return {
       ok: false,
       code: error.code,
-      error: bookingErrorMessages[error.code],
+      error: error.message || bookingErrorMessages[error.code],
     };
   }
 

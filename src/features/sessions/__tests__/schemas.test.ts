@@ -9,10 +9,12 @@ describe("session schemas", () => {
     const parsed = createSessionSchema.safeParse({
       title: "Утренняя группа",
       description: "",
+      trainerId: "",
       date: "2000-01-01",
       startTime: "09:00",
       durationMinutes: "60",
       capacity: "8",
+      cancellationDeadlineHours: "2",
     });
 
     expect(parsed.success).toBe(false);
@@ -29,10 +31,12 @@ describe("session schemas", () => {
     const parsed = schema.safeParse({
       title: "Новый заголовок",
       description: "Новое описание",
+      trainerId: "",
       date: "2099-01-01",
       startTime: "18:00",
       durationMinutes: "60",
       capacity: "8",
+      cancellationDeadlineHours: "2",
     });
 
     expect(parsed.success).toBe(true);
@@ -49,10 +53,12 @@ describe("session schemas", () => {
     const parsed = schema.safeParse({
       title: "Новый заголовок",
       description: "Новое описание",
+      trainerId: "",
       date: "2099-01-01",
       startTime: "18:00",
       durationMinutes: "60",
       capacity: "7",
+      cancellationDeadlineHours: "2",
     });
 
     expect(parsed.success).toBe(false);

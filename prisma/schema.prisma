@@ -124,15 +124,23 @@ enum SessionStatus {
   completed
 }
 
+enum SessionOrigin {
+  manual
+  auto_free
+}
+
 model Session {
   id             String        @id @default(uuid()) @db.Uuid
   type           SessionType
+  origin         SessionOrigin @default(manual)
+  autoSlotKey    String?       @unique
   title          String?       // "ОФП для бегунов"
   description    String?
   trainerId      String?       @db.Uuid  // для personal обязательно, для group опционально
   startsAt       DateTime
   durationMinutes Int
   capacity       Int           // 1 для personal, 6-8 для group
+  cancellationDeadlineHours Int @default(2)
   status         SessionStatus @default(scheduled)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -144,6 +152,7 @@ model Session {
   workoutLogs WorkoutLog[]
 
   @@index([startsAt])
+  @@index([origin, startsAt])
   @@index([trainerId, startsAt])
   @@index([status, startsAt])
 }
@@ -285,6 +294,7 @@ model WorkoutLog {
   durationMin Int?
   rpe         Int?      // 1-10, субъективная оценка нагрузки
   notes       String?
+  diaryReminderSentAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -292,7 +302,9 @@ model WorkoutLog {
   session  Session?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   exercises ExerciseLog[]
 
+  @@unique([userId, sessionId])
   @@index([userId, performedAt])
+  @@index([diaryReminderSentAt, performedAt])
 }
 
 model ExerciseLog {
@@ -360,6 +372,24 @@ model GymState {
 }
 
 // ============ WEB PUSH ПОДПИСКИ ============
+
+model GymSettings {
+  id                      Int      @id @default(1)
+  freeSlotCapacity        Int      @default(8)
+  freeSlotDurationMinutes Int      @default(60)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model GymWorkingHour {
+  id              String   @id @default(uuid()) @db.Uuid
+  weekday         Int      @unique
+  isOpen          Boolean  @default(false)
+  opensAtMinutes  Int      @default(540)
+  closesAtMinutes Int      @default(1260)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
 
 model DeviceSubscription {
   id        String   @id @default(uuid()) @db.Uuid

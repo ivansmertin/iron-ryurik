@@ -17,8 +17,11 @@ import {
   getDatabaseActionErrorMessage,
   logPrismaError,
 } from "@/lib/prisma-errors";
+import { FREE_SLOT_TITLE, buildAutoSlotKey } from "@/features/gym-schedule/service";
 import { cancelSessionWithDb } from "./service";
 import { createSessionSchema, updateSessionSchema } from "./schemas";
+
+const ACTIVE_BOOKING_STATUSES = ["pending", "completed", "no_show"] as const;
 
 function buildScheduleRedirect(toast: string) {
   return `/admin/schedule?toast=${encodeURIComponent(toast)}`;
@@ -28,10 +31,12 @@ function getSessionPayload(formData: FormData) {
   return {
     title: String(formData.get("title") ?? ""),
     description: String(formData.get("description") ?? ""),
+    trainerId: String(formData.get("trainerId") ?? ""),
     date: String(formData.get("date") ?? ""),
     startTime: String(formData.get("startTime") ?? ""),
     durationMinutes: String(formData.get("durationMinutes") ?? ""),
     capacity: String(formData.get("capacity") ?? ""),
+    cancellationDeadlineHours: String(formData.get("cancellationDeadlineHours") ?? ""),
   };
 }
 
@@ -57,18 +62,72 @@ export async function createSession(
   }
 
   const startedAt = Date.now();
+  const trainerId = parsed.data.trainerId || null;
 
   try {
-    await prisma.session.create({
-      data: {
-        type: "group",
-        trainerId: null,
-        title: parsed.data.title,
-        description: parsed.data.description || null,
-        startsAt,
-        durationMinutes: parsed.data.durationMinutes,
-        capacity: parsed.data.capacity,
-      },
+    await prisma.$transaction(async (tx) => {
+      const existingFreeSlot = await tx.session.findFirst({
+        where: {
+          type: "group",
+          origin: "auto_free",
+          status: "scheduled",
+          startsAt,
+        },
+        select: {
+          id: true,
+          durationMinutes: true,
+          bookings: {
+            where: {
+              status: {
+                in: [...ACTIVE_BOOKING_STATUSES],
+              },
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (existingFreeSlot) {
+        const activeBookingsCount = existingFreeSlot.bookings.length;
+
+        await tx.session.update({
+          where: {
+            id: existingFreeSlot.id,
+          },
+          data: {
+            origin: "manual",
+            autoSlotKey: null,
+            trainerId,
+            title: parsed.data.title,
+            description: parsed.data.description || null,
+            durationMinutes: activeBookingsCount
+              ? existingFreeSlot.durationMinutes
+              : parsed.data.durationMinutes,
+            capacity: Math.max(parsed.data.capacity, activeBookingsCount),
+            cancellationDeadlineHours: parsed.data.cancellationDeadlineHours,
+            version: {
+              increment: 1,
+            },
+          },
+        });
+        return;
+      }
+
+      await tx.session.create({
+        data: {
+          type: "group",
+          origin: "manual",
+          trainerId,
+          title: parsed.data.title,
+          description: parsed.data.description || null,
+          startsAt,
+          durationMinutes: parsed.data.durationMinutes,
+          capacity: parsed.data.capacity,
+          cancellationDeadlineHours: parsed.data.cancellationDeadlineHours,
+        },
+      });
     });
   } catch (error) {
     logPrismaError("sessions.createSession", error, startedAt);
@@ -102,6 +161,7 @@ export async function updateSession(
       select: {
         id: true,
         title: true,
+        origin: true,
         startsAt: true,
         durationMinutes: true,
         capacity: true,
@@ -156,11 +216,27 @@ export async function updateSession(
         id: sessionId,
       },
       data: {
+        origin:
+          existingSession.origin === "auto_free" &&
+          (parsed.data.title !== FREE_SLOT_TITLE ||
+            parsed.data.description ||
+            parsed.data.trainerId)
+            ? "manual"
+            : undefined,
+        autoSlotKey:
+          existingSession.origin === "auto_free" &&
+          (parsed.data.title !== FREE_SLOT_TITLE ||
+            parsed.data.description ||
+            parsed.data.trainerId)
+            ? null
+            : undefined,
         title: parsed.data.title,
         description: parsed.data.description || null,
+        trainerId: parsed.data.trainerId || null,
         startsAt,
         durationMinutes: parsed.data.durationMinutes,
         capacity: parsed.data.capacity,
+        cancellationDeadlineHours: parsed.data.cancellationDeadlineHours,
         version: {
           increment: 1,
         },
@@ -226,4 +302,69 @@ export async function cancelSession(
   }
 
   redirect(buildScheduleRedirect(`session-cancelled:${cancelledBookingsCount}`));
+}
+
+export async function returnSessionToFreeSlot(
+  sessionId: string,
+  prevState?: ActionState,
+): Promise<ActionState> {
+  void prevState;
+  await requireUser("admin");
+
+  const startedAt = Date.now();
+
+  try {
+    const session = await prisma.session.findFirst({
+      where: {
+        id: sessionId,
+        type: "group",
+      },
+      select: {
+        id: true,
+        status: true,
+        startsAt: true,
+        durationMinutes: true,
+      },
+    });
+
+    if (!session) {
+      return getActionError("Занятие не найдено.");
+    }
+
+    if (session.status !== "scheduled" || session.startsAt <= new Date()) {
+      return getActionError("В свободный слот можно вернуть только будущее занятие.");
+    }
+
+    await prisma.session.update({
+      where: {
+        id: session.id,
+      },
+      data: {
+        origin: "auto_free",
+        autoSlotKey: buildAutoSlotKey(session.startsAt),
+        title: FREE_SLOT_TITLE,
+        description: null,
+        trainerId: null,
+        durationMinutes: session.durationMinutes,
+        cancellationDeadlineHours: 2,
+        version: {
+          increment: 1,
+        },
+      },
+    });
+  } catch (error) {
+    logPrismaError("sessions.returnSessionToFreeSlot", error, startedAt);
+
+    return getActionError(
+      getDatabaseActionErrorMessage(
+        error,
+        "Не удалось вернуть занятие в свободный слот.",
+        {
+          preserveKnownErrorMessage: true,
+        },
+      ),
+    );
+  }
+
+  redirect(buildScheduleRedirect("session-updated"));
 }

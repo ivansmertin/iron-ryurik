@@ -4,8 +4,9 @@ import { PageHeader } from "@/components/admin/page-header";
 import { TabLinks } from "@/components/admin/tab-links";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/features/auth/get-user";
+import { DiaryReminderCard } from "@/features/workouts/components/diary-reminder-card";
 import { WorkoutLogList } from "@/features/workouts/components/workout-log-list";
-import { diaryTabs, type DiaryTab, listClientWorkoutLogs } from "@/features/workouts/queries";
+import { diaryTabs, type DiaryTab, listClientWorkoutLogs, listClientWorkoutLogsWithoutNotes } from "@/features/workouts/queries";
 import { getSearchParamValue } from "@/lib/search-params";
 
 type ClientDiaryPageProps = {
@@ -30,7 +31,10 @@ export default async function ClientDiaryPage({ searchParams }: ClientDiaryPageP
   const tab = getTabFromSearchParam(getSearchParamValue(resolvedSearchParams.tab));
   const toastKey = getSearchParamValue(resolvedSearchParams.toast);
 
-  const logs = await listClientWorkoutLogs(user.id, tab);
+  const [logs, reminders] = await Promise.all([
+    listClientWorkoutLogs(user.id, tab),
+    listClientWorkoutLogsWithoutNotes(user.id),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -53,6 +57,8 @@ export default async function ClientDiaryPage({ searchParams }: ClientDiaryPageP
           isActive: tab === item,
         }))}
       />
+
+      <DiaryReminderCard items={reminders} />
 
       <WorkoutLogList
         items={logs}

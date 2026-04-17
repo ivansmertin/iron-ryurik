@@ -34,7 +34,6 @@ export const trainerLinks: NavLink[] = [
 export const adminLinks: NavLink[] = [
   { href: "/admin", label: "Главная", icon: "home" },
   { href: "/admin/schedule", label: "Расписание", icon: "calendar" },
-  { href: "/admin/scan", label: "QR", icon: "qr-code" },
   { href: "/admin/clients", label: "Клиенты", icon: "users" },
   { href: "/admin/memberships", label: "Абонементы", icon: "credit-card" },
   { href: "/admin/exercises", label: "Упражнения", icon: "dumbbell" },

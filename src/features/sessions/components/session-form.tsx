@@ -9,6 +9,7 @@ import { FieldError } from "@/components/admin/field-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ActionState } from "@/lib/action-state";
 import { createSession, updateSession } from "@/features/sessions/actions";
@@ -29,6 +30,7 @@ type SessionFormProps = {
   sessionId?: string;
   defaultValues: SessionFormValues;
   updateOptions?: UpdateSessionSchemaOptions;
+  trainers?: Array<{ id: string; fullName: string }>;
 };
 
 function getServerFieldError(
@@ -47,6 +49,7 @@ export function SessionForm({
   sessionId,
   defaultValues,
   updateOptions,
+  trainers = [],
 }: SessionFormProps) {
   const [, startTransition] = useTransition();
   const action =
@@ -118,6 +121,23 @@ export function SessionForm({
             {...form.register("description")}
           />
           <FieldError message={fieldError("description")} />
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="trainerId">Тренер</Label>
+          <Select
+            id="trainerId"
+            aria-invalid={Boolean(fieldError("trainerId"))}
+            {...form.register("trainerId")}
+          >
+            <option value="">Без тренера</option>
+            {trainers.map((trainer) => (
+              <option key={trainer.id} value={trainer.id}>
+                {trainer.fullName}
+              </option>
+            ))}
+          </Select>
+          <FieldError message={fieldError("trainerId")} />
         </div>
 
         <div className="space-y-2">
@@ -202,6 +222,21 @@ export function SessionForm({
               Нельзя изменить вместимость прошедшего занятия.
             </p>
           ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="cancellationDeadlineHours">
+            Запрет отмены, часов до начала
+          </Label>
+          <Input
+            id="cancellationDeadlineHours"
+            type="number"
+            min={0}
+            max={72}
+            aria-invalid={Boolean(fieldError("cancellationDeadlineHours"))}
+            {...form.register("cancellationDeadlineHours")}
+          />
+          <FieldError message={fieldError("cancellationDeadlineHours")} />
         </div>
       </div>
 

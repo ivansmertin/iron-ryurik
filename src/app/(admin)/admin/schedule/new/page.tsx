@@ -1,8 +1,11 @@
 import { PageHeader } from "@/components/admin/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SessionForm } from "@/features/sessions/components/session-form";
+import { listSessionTrainers } from "@/features/sessions/queries";
 
-export default function NewSessionPage() {
+export default async function NewSessionPage() {
+  const trainers = await listSessionTrainers();
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -20,11 +23,14 @@ export default function NewSessionPage() {
             defaultValues={{
               title: "",
               description: "",
+              trainerId: "",
               date: "",
               startTime: "",
               durationMinutes: 60,
               capacity: 8,
+              cancellationDeadlineHours: 2,
             }}
+            trainers={trainers}
           />
         </CardContent>
       </Card>

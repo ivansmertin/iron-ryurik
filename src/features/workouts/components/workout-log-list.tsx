@@ -9,6 +9,9 @@ type WorkoutLogListItem = {
   durationMin: number | null;
   rpe: number | null;
   notes: string | null;
+  session: {
+    title: string | null;
+  } | null;
   exercises: Array<{ id: string }>;
 };
 
@@ -43,7 +46,7 @@ export function WorkoutLogList({
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               <CardDescription>{formatMoscowDateTime(item.performedAt)}</CardDescription>
-              <CardTitle>Тренировка</CardTitle>
+              <CardTitle>{item.session?.title ?? "Тренировка"}</CardTitle>
             </div>
             <Button
               variant="outline"
@@ -64,6 +67,8 @@ export function WorkoutLogList({
             </p>
             {item.notes ? (
               <p className="line-clamp-3 whitespace-pre-wrap">{item.notes}</p>
+            ) : item.session ? (
+              <p className="text-muted-foreground">Заметки пока не заполнены</p>
             ) : null}
           </CardContent>
         </Card>

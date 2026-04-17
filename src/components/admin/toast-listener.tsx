@@ -50,6 +50,10 @@ function resolveToastMessage(toastKey: string) {
       type: "success",
       message: "Заметки сохранены.",
     },
+    "schedule-settings-updated": {
+      type: "success",
+      message: "Рабочее время сохранено.",
+    },
   };
 
   return messages[toastKey] ?? null;

@@ -43,6 +43,7 @@ export type ClientUpcomingBooking = {
     title: string | null;
     startsAt: Date;
     durationMinutes: number;
+    cancellationDeadlineHours: number;
   };
 };
 
@@ -68,6 +69,7 @@ export type ClientBookingRecord = {
     title: string | null;
     startsAt: Date;
     durationMinutes: number;
+    cancellationDeadlineHours: number;
   };
 };
 
@@ -196,11 +198,12 @@ export async function getClientDashboardData(
             sessionId: true,
             session: {
               select: {
-                title: true,
-                startsAt: true,
-                durationMinutes: true,
-              },
-            },
+          title: true,
+          startsAt: true,
+          durationMinutes: true,
+          cancellationDeadlineHours: true,
+        },
+      },
           },
         }),
       ]);
@@ -329,6 +332,7 @@ export async function getClientBookings(userId: string) {
             title: true,
             startsAt: true,
             durationMinutes: true,
+            cancellationDeadlineHours: true,
           },
         },
       },

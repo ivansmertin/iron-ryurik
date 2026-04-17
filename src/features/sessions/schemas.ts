@@ -13,6 +13,7 @@ const sessionBaseSchema = z.object({
     .max(1000, "Максимум 1000 символов")
     .optional()
     .default(""),
+  trainerId: z.string().uuid("Некорректный тренер").optional().or(z.literal("")).default(""),
   date: z.string().min(1, "Укажите дату"),
   startTime: z.string().min(1, "Укажите время начала"),
   durationMinutes: z.coerce
@@ -26,6 +27,11 @@ const sessionBaseSchema = z.object({
     .int("Введите целое число")
     .min(1, "Минимум 1 место")
     .max(20, "Максимум 20 мест"),
+  cancellationDeadlineHours: z.coerce
+    .number()
+    .int("Введите целое число")
+    .min(0, "Минимум 0 часов")
+    .max(72, "Максимум 72 часа"),
 });
 
 function addInvalidDateIssue(

@@ -64,6 +64,12 @@ export async function listClientWorkoutLogs(clientId: string, tab: DiaryTab) {
           durationMin: true,
           rpe: true,
           notes: true,
+          session: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
           exercises: {
             select: {
               id: true,
@@ -87,10 +93,17 @@ export async function getClientWorkoutLogById(clientId: string, workoutLogId: st
         select: {
           id: true,
           userId: true,
+          sessionId: true,
           performedAt: true,
           durationMin: true,
           rpe: true,
           notes: true,
+          session: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
           exercises: {
             orderBy: {
               orderIndex: "asc",
@@ -114,6 +127,43 @@ export async function getClientWorkoutLogById(clientId: string, workoutLogId: st
       }),
     1,
     "workouts.getClientWorkoutLogById",
+  );
+}
+
+export async function listClientWorkoutLogsWithoutNotes(clientId: string) {
+  return withPrismaReadRetry(
+    () =>
+      prisma.workoutLog.findMany({
+        where: {
+          userId: clientId,
+          sessionId: {
+            not: null,
+          },
+          OR: [
+            {
+              notes: null,
+            },
+            {
+              notes: "",
+            },
+          ],
+        },
+        orderBy: {
+          performedAt: "desc",
+        },
+        take: 5,
+        select: {
+          id: true,
+          performedAt: true,
+          session: {
+            select: {
+              title: true,
+            },
+          },
+        },
+      }),
+    1,
+    "workouts.listClientWorkoutLogsWithoutNotes",
   );
 }
 
