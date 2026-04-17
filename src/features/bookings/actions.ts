@@ -26,6 +26,7 @@ import {
   createBookingQrToken,
   verifyBookingQrToken,
 } from "./qr";
+import { updateGymOccupancy } from "@/features/gym-state/service";
 
 export type BookingActionSuccess = {
   ok: true;
@@ -116,6 +117,21 @@ function revalidateBookingViews() {
   revalidatePath("/admin/schedule");
   revalidatePath("/trainer");
   revalidatePath("/trainer/scan");
+}
+
+async function incrementGymOccupancyForAttendance(result: AttendanceResult) {
+  if (result.alreadyProcessed || result.status !== "completed") {
+    return;
+  }
+
+  try {
+    await updateGymOccupancy({ delta: 1 });
+  } catch (error) {
+    console.error(
+      "[bookings.actions] failed to increment gym occupancy after check-in",
+      error,
+    );
+  }
 }
 
 export async function bookSession(
@@ -258,6 +274,7 @@ export async function confirmAttendance(
       },
     );
 
+    await incrementGymOccupancyForAttendance(result);
     revalidateBookingViews();
 
     return toAttendanceSuccessState(result);
@@ -304,6 +321,7 @@ export async function confirmAttendanceFromQr(
       },
     );
 
+    await incrementGymOccupancyForAttendance(result);
     revalidateBookingViews();
 
     return toAttendanceSuccessState(result);

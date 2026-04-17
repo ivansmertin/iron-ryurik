@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/features/auth/get-user";
+import { requireUserRole } from "@/features/auth/get-user";
 import { updateGymOccupancy } from "./service";
 
 type OccupancyActionResult = { value: number } | { error: string };
@@ -9,11 +9,12 @@ type OccupancyActionResult = { value: number } | { error: string };
 export async function setExactOccupancyAction(
   value: number
 ): Promise<OccupancyActionResult> {
-  await requireUser("admin");
+  await requireUserRole(["admin", "trainer"]);
 
   try {
     const updatedValue = await updateGymOccupancy({ exactValue: value });
     revalidatePath("/admin", "layout");
+    revalidatePath("/trainer", "layout");
     revalidatePath("/client", "layout");
     return { value: updatedValue };
   } catch {
@@ -24,11 +25,12 @@ export async function setExactOccupancyAction(
 export async function changeOccupancyAction(
   delta: number
 ): Promise<OccupancyActionResult> {
-  await requireUser("admin");
+  await requireUserRole(["admin", "trainer"]);
 
   try {
     const updatedValue = await updateGymOccupancy({ delta });
     revalidatePath("/admin", "layout");
+    revalidatePath("/trainer", "layout");
     revalidatePath("/client", "layout");
     return { value: updatedValue };
   } catch {

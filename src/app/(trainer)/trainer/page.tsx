@@ -9,6 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requireUser } from "@/features/auth/get-user";
+import { AdminOccupancyCard } from "@/features/gym-state/components/admin-occupancy-card";
+import { getGymOccupancy } from "@/features/gym-state/service";
 import { listTrainerClients, listTrainerSlots, getTrainerDashboardStats } from "@/features/trainer/queries";
 import { markPastSessionsCompleted } from "@/features/sessions/service";
 import {
@@ -48,6 +50,13 @@ export default async function TrainerDashboardPage() {
   await markPastSessionsCompleted().catch((error) => {
     console.error("[trainer-dashboard] markPastSessionsCompleted failed", error);
   });
+
+  let gymOccupancy = 0;
+  try {
+    gymOccupancy = await getGymOccupancy();
+  } catch (error) {
+    console.error("[trainer-dashboard] getGymOccupancy failed", error);
+  }
 
   let dashboardData:
     | Awaited<ReturnType<typeof getTrainerDashboardStats>>
@@ -95,6 +104,8 @@ export default async function TrainerDashboardPage() {
           </>
         }
       />
+
+      <AdminOccupancyCard initialOccupancy={gymOccupancy} />
 
       {dashboardData && upcomingSlotsData && recentClientsData ? (
         <div className="space-y-6">
