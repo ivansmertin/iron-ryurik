@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/features/auth/get-user";
 import {
@@ -10,45 +9,86 @@ import {
 } from "@/lib/action-state";
 import { prisma } from "@/lib/prisma";
 import {
+  getDatabaseActionErrorMessage,
+  logPrismaError,
+} from "@/lib/prisma-errors";
+import {
   normalizeSportValue,
   updateClientProfileSchema,
 } from "./schemas";
 
 export async function updateClientNotes(
   clientId: string,
-  _prevState: ActionState,
+  _prevState: UpdateClientNotesActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<UpdateClientNotesActionState> {
   await requireUser("admin");
 
   const notes = String(formData.get("notes") ?? "").trim();
 
-  const client = await prisma.user.findFirst({
-    where: {
-      id: clientId,
-      role: "client",
-      deletedAt: null,
-    },
-    select: {
-      id: true,
-    },
-  });
+  const startedAt = Date.now();
+  let client: { id: string } | null = null;
+
+  try {
+    client = await prisma.user.findFirst({
+      where: {
+        id: clientId,
+        role: "client",
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+  } catch (error) {
+    logPrismaError("clients.updateClientNotes.findClient", error, startedAt);
+
+    return getActionError(
+      getDatabaseActionErrorMessage(
+        error,
+        "Не удалось загрузить данные клиента. Попробуйте ещё раз.",
+      ),
+    );
+  }
 
   if (!client) {
     return getActionError("Клиент не найден.");
   }
 
-  await prisma.user.update({
-    where: {
-      id: clientId,
-    },
-    data: {
-      notes: notes || null,
-    },
-  });
+  try {
+    await prisma.user.update({
+      where: {
+        id: clientId,
+      },
+      data: {
+        notes: notes || null,
+      },
+    });
+  } catch (error) {
+    logPrismaError("clients.updateClientNotes.update", error, startedAt);
 
-  redirect(`/admin/clients/${clientId}?toast=notes-updated`);
+    return getActionError(
+      getDatabaseActionErrorMessage(
+        error,
+        "Не удалось сохранить заметки. Попробуйте ещё раз.",
+      ),
+    );
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/clients");
+  revalidatePath(`/admin/clients/${clientId}`);
+
+  return {
+    ok: true,
+  };
 }
+
+export type UpdateClientNotesActionState =
+  | {
+      ok: true;
+    }
+  | ActionState;
 
 export type UpdateClientProfileActionState =
   | {

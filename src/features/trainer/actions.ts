@@ -283,33 +283,44 @@ export async function cancelTrainerSlot(
 
 export async function updateTrainerClientNotes(
   clientId: string,
-  _prevState: ActionState,
+  _prevState: UpdateTrainerClientNotesActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<UpdateTrainerClientNotesActionState> {
   const user = await requireUser("trainer");
   const notes = String(formData.get("notes") ?? "").trim();
+  const startedAt = Date.now();
+  let client: { id: string } | null = null;
 
-  const client = await prisma.user.findFirst({
-    where: {
-      id: clientId,
-      role: "client",
-      deletedAt: null,
-      programs: {
-        some: {
-          trainerId: user.id,
+  try {
+    client = await prisma.user.findFirst({
+      where: {
+        id: clientId,
+        role: "client",
+        deletedAt: null,
+        programs: {
+          some: {
+            trainerId: user.id,
+          },
         },
       },
-    },
-    select: {
-      id: true,
-    },
-  });
+      select: {
+        id: true,
+      },
+    });
+  } catch (error) {
+    logPrismaError("trainer.updateTrainerClientNotes.findClient", error, startedAt);
+
+    return getActionError(
+      getDatabaseActionErrorMessage(
+        error,
+        "Не удалось загрузить данные клиента. Попробуйте ещё раз.",
+      ),
+    );
+  }
 
   if (!client) {
     return getActionError("Клиент не найден.");
   }
-
-  const startedAt = Date.now();
 
   try {
     await prisma.user.update({
@@ -336,8 +347,16 @@ export async function updateTrainerClientNotes(
   revalidatePath(`/trainer/clients/${clientId}`);
   revalidatePath(`/trainer/clients/${clientId}/notes`);
 
-  redirect(`/trainer/clients/${clientId}/notes?toast=notes-updated`);
+  return {
+    ok: true,
+  };
 }
+
+export type UpdateTrainerClientNotesActionState =
+  | {
+      ok: true;
+    }
+  | ActionState;
 
 export async function claimFreeSlot(
   sessionId: string,

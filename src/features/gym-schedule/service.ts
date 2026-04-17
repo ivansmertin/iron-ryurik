@@ -10,6 +10,7 @@ import { withPrismaReadRetry } from "@/lib/prisma-read";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 const ACTIVE_BOOKING_STATUSES = ["pending", "completed", "no_show"] as const;
+const MISSING_GYM_SCHEDULE_SCHEMA_ERROR_CODES = new Set(["P2021", "P2022"]);
 
 export const FREE_SLOT_TITLE = "Свободная тренировка";
 export const FREE_SLOT_DURATION_MINUTES = 60;
@@ -71,6 +72,62 @@ function getDefaultWorkingHours(): GymWorkingHourInput[] {
     opensAtMinutes: 9 * 60,
     closesAtMinutes: 21 * 60,
   }));
+}
+
+function getDefaultScheduleSettings() {
+  return {
+    id: 1,
+    freeSlotCapacity: FREE_SLOT_CAPACITY,
+    freeSlotDurationMinutes: FREE_SLOT_DURATION_MINUTES,
+    freeSlotDropInPrice: 0,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  };
+}
+
+function isMissingGymScheduleSchemaError(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as { code?: unknown }).code === "string"
+  ) {
+    return MISSING_GYM_SCHEDULE_SCHEMA_ERROR_CODES.has(
+      (error as { code: string }).code,
+    );
+  }
+
+  return false;
+}
+
+async function getGymScheduleSettingsLegacy(
+  db: Pick<typeof prisma, "gymSettings" | "gymWorkingHour">,
+) {
+  const [legacySettings, workingHours] = await Promise.all([
+    db.gymSettings.findUnique({
+      where: { id: 1 },
+      select: {
+        id: true,
+        freeSlotCapacity: true,
+        freeSlotDurationMinutes: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    db.gymWorkingHour.findMany({
+      orderBy: { weekday: "asc" },
+    }),
+  ]);
+
+  return {
+    settings: legacySettings
+      ? {
+          ...legacySettings,
+          freeSlotDropInPrice: 0,
+        }
+      : getDefaultScheduleSettings(),
+    workingHours: workingHours.length ? workingHours : getDefaultWorkingHours(),
+  };
 }
 
 function minutesToClockPart(minutes: number) {
@@ -153,14 +210,49 @@ export function buildFreeSlotCandidates({
 export async function getGymScheduleSettings(db = prisma) {
   return withPrismaReadRetry(
     async () => {
-      const [settings, workingHours] = await Promise.all([
-        db.gymSettings.findUnique({
-          where: { id: 1 },
-        }),
-        db.gymWorkingHour.findMany({
-          orderBy: { weekday: "asc" },
-        }),
-      ]);
+      let settings: {
+        id: number;
+        freeSlotCapacity: number;
+        freeSlotDurationMinutes: number;
+        freeSlotDropInPrice: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
+      } | null = null;
+      let workingHours: GymWorkingHourInput[] = [];
+
+      try {
+        [settings, workingHours] = await Promise.all([
+          db.gymSettings.findUnique({
+            where: { id: 1 },
+            select: {
+              id: true,
+              freeSlotCapacity: true,
+              freeSlotDurationMinutes: true,
+              freeSlotDropInPrice: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          }),
+          db.gymWorkingHour.findMany({
+            orderBy: { weekday: "asc" },
+          }),
+        ]);
+      } catch (error) {
+        if (!isMissingGymScheduleSchemaError(error)) {
+          throw error;
+        }
+
+        // Graceful fallback for environments where latest migrations
+        // have not been applied yet (e.g. missing GymSettings columns).
+        try {
+          return await getGymScheduleSettingsLegacy(db);
+        } catch {
+          return {
+            settings: getDefaultScheduleSettings(),
+            workingHours: getDefaultWorkingHours(),
+          };
+        }
+      }
 
       return {
         settings: settings
@@ -168,14 +260,7 @@ export async function getGymScheduleSettings(db = prisma) {
               ...settings,
               freeSlotDropInPrice: Number(settings.freeSlotDropInPrice),
             }
-          : {
-              id: 1,
-              freeSlotCapacity: FREE_SLOT_CAPACITY,
-              freeSlotDurationMinutes: FREE_SLOT_DURATION_MINUTES,
-              freeSlotDropInPrice: 0,
-              createdAt: new Date(0),
-              updatedAt: new Date(0),
-            },
+          : getDefaultScheduleSettings(),
         workingHours: workingHours.length ? workingHours : getDefaultWorkingHours(),
       };
     },

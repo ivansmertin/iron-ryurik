@@ -3,17 +3,43 @@ import {
   logPrismaError,
 } from "@/lib/prisma-errors";
 
+const DEFAULT_PRISMA_READ_TIMEOUT_MS = 15_000;
+
+async function withReadTimeout<T>(
+  operation: () => Promise<T>,
+  timeoutMs: number,
+  context: string,
+) {
+  let timeoutId: NodeJS.Timeout | null = null;
+
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`[${context}] query timeout after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 export async function withPrismaReadRetry<T>(
   operation: () => Promise<T>,
   retries = 2,
   context = "prisma.read",
+  timeoutMs = DEFAULT_PRISMA_READ_TIMEOUT_MS,
 ): Promise<T> {
   const startedAt = Date.now();
   let attempt = 0;
 
   while (true) {
     try {
-      return await operation();
+      return await withReadTimeout(operation, timeoutMs, context);
     } catch (error) {
       if (!isTransientPrismaConnectionError(error) || attempt >= retries) {
         logPrismaError(context, error, startedAt);

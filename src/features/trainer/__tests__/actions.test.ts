@@ -197,20 +197,24 @@ describe("Trainer Server Actions", () => {
       const formData = new FormData();
       formData.append("notes", "He is doing well.");
 
-      await updateTrainerClientNotes(clientId, {}, formData);
+      const result = await updateTrainerClientNotes(clientId, undefined, formData);
 
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: clientId },
         data: { notes: "He is doing well." }
       });
-      expect(redirect).toHaveBeenCalledWith(expect.stringContaining("notes-updated"));
+      expect(result).toEqual({ ok: true });
     });
 
     it("returns error if client is not linked to trainer", async () => {
       mockRequireUser.mockResolvedValue(mockTrainer);
       mockPrisma.user.findFirst.mockResolvedValue(null);
 
-      const result = await updateTrainerClientNotes("other-client", {}, new FormData());
+      const result = await updateTrainerClientNotes(
+        "other-client",
+        undefined,
+        new FormData(),
+      );
 
       expect(result).toMatchObject({ ok: false, error: "Клиент не найден." });
     });

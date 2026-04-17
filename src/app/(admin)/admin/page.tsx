@@ -16,6 +16,25 @@ import { withPrismaReadRetry } from "@/lib/prisma-read";
 import { markPastSessionsCompleted } from "@/features/sessions/service";
 import { QrCode, Dumbbell, Settings, Receipt } from "lucide-react";
 
+function isMissingDropInPassSchemaError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const code = "code" in error ? (error as { code?: unknown }).code : undefined;
+  if (code !== "P2021" && code !== "P2022") {
+    return false;
+  }
+
+  const meta = "meta" in error ? (error as { meta?: unknown }).meta : undefined;
+  const modelName =
+    meta && typeof meta === "object" && "modelName" in meta
+      ? (meta as { modelName?: unknown }).modelName
+      : undefined;
+
+  return modelName === "DropInPass" || modelName === "dropInPass";
+}
+
 export default async function AdminDashboardPage() {
   const now = new Date();
   const todayRange = getMoscowDayRange(now);
@@ -77,11 +96,19 @@ export default async function AdminDashboardPage() {
           },
         });
 
-        const pendingDropInsCount = await prisma.dropInPass.count({
-          where: {
-            status: "pending",
-          },
-        });
+        let pendingDropInsCount = 0;
+
+        try {
+          pendingDropInsCount = await prisma.dropInPass.count({
+            where: {
+              status: "pending",
+            },
+          });
+        } catch (error) {
+          if (!isMissingDropInPassSchemaError(error)) {
+            throw error;
+          }
+        }
 
         const clientCount = await prisma.user.count({
           where: {

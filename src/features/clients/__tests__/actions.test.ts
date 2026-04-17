@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockDeep, mockReset } from "vitest-mock-extended";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/features/auth/get-user";
-import { redirect } from "next/navigation";
 import { updateClientNotes, updateClientProfile } from "../actions";
 
 vi.mock("@/lib/prisma", () => ({
@@ -11,10 +10,6 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/features/auth/get-user", () => ({
   requireUser: vi.fn(),
-}));
-
-vi.mock("next/navigation", () => ({
-  redirect: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -38,13 +33,13 @@ describe("Clients Actions", () => {
       const formData = new FormData();
       formData.append("notes", "Some internal notes");
 
-      await updateClientNotes("client-1", {}, formData);
+      const result = await updateClientNotes("client-1", undefined, formData);
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: "client-1" },
         data: { notes: "Some internal notes" },
       });
-      expect(redirect).toHaveBeenCalledWith(expect.stringContaining("notes-updated"));
+      expect(result).toEqual({ ok: true });
     });
 
     it("returns error if client is not found or deleted", async () => {
@@ -52,9 +47,13 @@ describe("Clients Actions", () => {
       vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
 
       const formData = new FormData();
-      const result = await updateClientNotes("invalid-id", {}, formData);
+      const result = await updateClientNotes("invalid-id", undefined, formData);
 
-      expect(result.error).toBe("Клиент не найден.");
+      expect(result).toBeDefined();
+      expect(result?.ok).toBe(false);
+      expect(result && "error" in result ? result.error : undefined).toBe(
+        "Клиент не найден.",
+      );
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
