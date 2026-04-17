@@ -33,12 +33,22 @@ export const trainerLinks: NavLink[] = [
   { href: "/trainer/clients", label: "Клиенты", icon: "users" },
 ];
 
-export const adminLinks: NavLink[] = [
+/** Full admin links – used by the desktop sidebar. */
+export const adminSidebarLinks: NavLink[] = [
   { href: "/admin", label: "Главная", icon: "home" },
   { href: "/admin/schedule", label: "Расписание", icon: "calendar" },
   { href: "/admin/clients", label: "Клиенты", icon: "users" },
   { href: "/admin/memberships", label: "Абонементы", icon: "credit-card" },
   { href: "/admin/exercises", label: "Упражнения", icon: "dumbbell" },
   { href: "/admin/schedule/settings", label: "Настройки зала", icon: "settings" },
+  { href: "/admin/profile", label: "Профиль", icon: "user" },
+];
+
+/** Trimmed admin links – used by the mobile bottom nav. */
+export const adminBottomNavLinks: NavLink[] = [
+  { href: "/admin", label: "Главная", icon: "home" },
+  { href: "/admin/schedule", label: "Расписание", icon: "calendar" },
+  { href: "/admin/clients", label: "Клиенты", icon: "users" },
+  { href: "/admin/memberships", label: "Абонементы", icon: "credit-card" },
   { href: "/admin/profile", label: "Профиль", icon: "user" },
 ];

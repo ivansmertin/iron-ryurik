@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminLinks, clientLinks, trainerLinks } from "@/config/navigation";
+import { adminSidebarLinks as adminLinks, clientLinks, trainerLinks } from "@/config/navigation";
 
 describe("navigation", () => {
   it("не содержит ссылок на coming-soon", () => {

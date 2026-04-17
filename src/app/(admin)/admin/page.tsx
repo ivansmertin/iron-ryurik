@@ -2,7 +2,6 @@ import Link from "next/link";
 import { PageHeader } from "@/components/admin/page-header";
 import { AdminOccupancyCard } from "@/features/gym-state/components/admin-occupancy-card";
 import { getGymOccupancy } from "@/features/gym-state/service";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,6 +14,7 @@ import { formatMoscowDate } from "@/lib/formatters";
 import { prisma } from "@/lib/prisma";
 import { withPrismaReadRetry } from "@/lib/prisma-read";
 import { markPastSessionsCompleted } from "@/features/sessions/service";
+import { QrCode, Dumbbell, Settings } from "lucide-react";
 
 export default async function AdminDashboardPage() {
   const now = new Date();
@@ -99,6 +99,27 @@ export default async function AdminDashboardPage() {
     console.error("[admin-dashboard] failed to load stats", error);
   }
 
+  const quickActions = [
+    {
+      href: "/admin/scan",
+      icon: QrCode,
+      title: "Сканер QR",
+      description: "Подтверждение посещений и списание занятий.",
+    },
+    {
+      href: "/admin/exercises",
+      icon: Dumbbell,
+      title: "Упражнения",
+      description: "Каталог упражнений для тренировок.",
+    },
+    {
+      href: "/admin/schedule/settings",
+      icon: Settings,
+      title: "Настройки зала",
+      description: "Расписание работы и лимиты зала.",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -110,19 +131,23 @@ export default async function AdminDashboardPage() {
         <AdminOccupancyCard initialOccupancy={gymOccupancy} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Сканер QR</CardTitle>
-          <CardDescription>
-            Подтверждение посещений клиентов и списание занятий по QR-коду.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button nativeButton={false} render={<Link href="/admin/scan" />}>
-            Сканировать QR
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {quickActions.map(({ href, icon: Icon, title, description }) => (
+          <Link key={href} href={href} className="group">
+            <Card className="h-full transition-all group-hover:shadow-md group-hover:border-primary/40">
+              <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <CardTitle className="text-base">{title}</CardTitle>
+                  <CardDescription className="text-xs">{description}</CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </div>
 
       {cards ? (
         <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
