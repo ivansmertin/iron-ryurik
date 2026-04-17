@@ -42,10 +42,15 @@ type SessionForOverlap = {
   autoSlotKey: string | null;
   startsAt: Date;
   durationMinutes: number;
+  status: "scheduled" | "cancelled" | "completed";
+  title: string | null;
+  capacity: number;
+  description: string | null;
+  trainerId: string | null;
+  cancellationDeadlineHours: number;
 };
 
 type FreeSlotExisting = SessionForOverlap & {
-  status: "scheduled" | "cancelled" | "completed";
   bookings: Array<{ id: string }>;
 };
 
