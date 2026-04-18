@@ -1,6 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useOptimistic, startTransition } from "react";
+import {
+  useActionState,
+  useEffect,
+  useOptimistic,
+  startTransition,
+} from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -35,7 +40,7 @@ export function CancelBookingButton({
 
   const [isOptimisticCancelled, addOptimisticCancel] = useOptimistic(
     false,
-    () => true
+    () => true,
   );
 
   useEffect(() => {
@@ -66,8 +71,8 @@ export function CancelBookingButton({
   const handleAction = (formData: FormData) => {
     startTransition(() => {
       addOptimisticCancel(true);
+      formAction(formData);
     });
-    formAction(formData);
   };
 
   return (
@@ -81,14 +86,19 @@ export function CancelBookingButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Отменить запись?</AlertDialogTitle>
           <AlertDialogDescription>
-            Отмена возможна только не позже чем за {cancellationDeadlineHours} ч до начала.
-            Занятие ещё не списано, поэтому отмена просто освободит резерв.
+            Отмена возможна только не позже чем за {cancellationDeadlineHours} ч
+            до начала. Занятие ещё не списано, поэтому отмена просто освободит
+            резерв.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <form action={handleAction}>
           <AlertDialogFooter>
             <AlertDialogCancel>Назад</AlertDialogCancel>
-            <AlertDialogAction type="submit" variant="destructive" disabled={pending}>
+            <AlertDialogAction
+              type="submit"
+              variant="destructive"
+              disabled={pending}
+            >
               {pending ? "Отменяем..." : "Отменить запись"}
             </AlertDialogAction>
           </AlertDialogFooter>

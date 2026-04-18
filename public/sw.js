@@ -1,15 +1,49 @@
-const STATIC_CACHE = "iron-rurik-static-v4";
-const NAV_CACHE = "iron-rurik-nav-v4";
+const STATIC_CACHE = "iron-rurik-static-v5";
+const NAV_CACHE = "iron-rurik-nav-v5";
 const OFFLINE_URL = "/offline.html";
 const PRIVATE_NAV_PREFIXES = ["/client", "/trainer", "/admin"];
 
 // Assets with content-hashed URLs — safe to cache forever.
-const STATIC_ASSETS = [OFFLINE_URL, "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+const STATIC_ASSETS = [
+  OFFLINE_URL,
+  "/manifest.webmanifest",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+];
 
 function isPrivateNavigation(pathname) {
   return PRIVATE_NAV_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
+}
+
+function isAppRouterFlightRequest(request, url) {
+  return (
+    url.searchParams.has("_rsc") ||
+    request.headers.get("RSC") === "1" ||
+    request.headers.has("Next-Router-State-Tree") ||
+    request.headers.has("Next-Router-Prefetch")
+  );
+}
+
+function shouldBypassCache(request, url) {
+  if (url.origin !== self.location.origin) {
+    return true;
+  }
+
+  if (url.pathname.startsWith("/api/")) {
+    return true;
+  }
+
+  if (
+    url.pathname.startsWith("/_next/") &&
+    !url.pathname.startsWith("/_next/static/")
+  ) {
+    return true;
+  }
+
+  return isAppRouterFlightRequest(request, url);
 }
 
 self.addEventListener("install", (event) => {
@@ -21,13 +55,15 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== STATIC_CACHE && key !== NAV_CACHE)
-          .map((key) => caches.delete(key)),
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== STATIC_CACHE && key !== NAV_CACHE)
+            .map((key) => caches.delete(key)),
+        ),
       ),
-    ),
   );
   self.clients.claim();
 });
@@ -40,6 +76,10 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
+
+  if (shouldBypassCache(request, url)) {
+    return;
+  }
 
   // ── 1. Next.js static chunks — Cache First (content-hashed, immutable) ──
   const isNextStatic = url.pathname.startsWith("/_next/static/");
@@ -59,7 +99,9 @@ self.addEventListener("fetch", (event) => {
         return fetch(request).then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+            caches
+              .open(STATIC_CACHE)
+              .then((cache) => cache.put(request, clone));
           }
           return response;
         });
@@ -146,7 +188,12 @@ self.addEventListener("push", (event) => {
   } catch (err) {
     console.error("Failed to parse push data", err);
     // Fallback if payload isn't JSON
-    event.waitUntil(self.registration.showNotification("Железный Рюрик", { body: event.data.text(), icon: "/icon-192.png" }));
+    event.waitUntil(
+      self.registration.showNotification("Железный Рюрик", {
+        body: event.data.text(),
+        icon: "/icon-192.png",
+      }),
+    );
   }
 });
 
@@ -156,16 +203,18 @@ self.addEventListener("notificationclick", (event) => {
   const urlToOpen = event.notification.data?.url || "/";
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        // If app already open, focus it
-        if (client.url === urlToOpen && "focus" in client) {
-          return client.focus();
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          // If app already open, focus it
+          if (client.url === urlToOpen && "focus" in client) {
+            return client.focus();
+          }
         }
-      }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
-      }
-    }),
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(urlToOpen);
+        }
+      }),
   );
 });

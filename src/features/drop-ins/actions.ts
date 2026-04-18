@@ -109,6 +109,7 @@ function revalidateBookingViews() {
   revalidatePath("/admin/drop-ins");
   revalidatePath("/trainer");
   revalidatePath("/trainer/scan");
+  revalidatePath("/trainer/schedule");
 }
 
 function toErrorState(error: unknown): DropInActionError {
@@ -127,7 +128,9 @@ function toErrorState(error: unknown): DropInActionError {
   };
 }
 
-function toBookSuccess(result: BookSessionAsDropInResult): DropInBookActionSuccess {
+function toBookSuccess(
+  result: BookSessionAsDropInResult,
+): DropInBookActionSuccess {
   return {
     ok: true,
     bookingId: result.bookingId,
@@ -151,7 +154,9 @@ function toPaidSuccess(result: MarkDropInPaidResult): DropInPaidActionSuccess {
   };
 }
 
-function toCancelSuccess(result: CancelDropInResult): DropInCancelActionSuccess {
+function toCancelSuccess(
+  result: CancelDropInResult,
+): DropInCancelActionSuccess {
   return {
     ok: true,
     dropInPassId: result.dropInPassId,
@@ -159,14 +164,18 @@ function toCancelSuccess(result: CancelDropInResult): DropInCancelActionSuccess 
   };
 }
 
-function toRefundSuccess(result: RefundDropInResult): DropInRefundActionSuccess {
+function toRefundSuccess(
+  result: RefundDropInResult,
+): DropInRefundActionSuccess {
   return {
     ok: true,
     dropInPassId: result.dropInPassId,
   };
 }
 
-function toWalkInSuccess(result: CreateWalkInDropInResult): WalkInDropInActionSuccess {
+function toWalkInSuccess(
+  result: CreateWalkInDropInResult,
+): WalkInDropInActionSuccess {
   return {
     ok: true,
     dropInPassId: result.dropInPassId,
@@ -251,9 +260,8 @@ export async function markDropInPaidAndConfirmAttendance(
         });
 
         // Подтверждаем посещение — booking → completed
-        const { confirmAttendanceForBooking } = await import(
-          "@/features/bookings/service"
-        );
+        const { confirmAttendanceForBooking } =
+          await import("@/features/bookings/service");
         await confirmAttendanceForBooking(tx, bookingId, actor.id, {
           method: "manual",
         });

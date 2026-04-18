@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { requireUser } from "@/features/auth/get-user";
 import {
   sendBestEffortEmails,
@@ -17,10 +18,10 @@ import {
   getDatabaseActionErrorMessage,
   logPrismaError,
 } from "@/lib/prisma-errors";
-import { 
-  FREE_SLOT_TITLE, 
+import {
+  FREE_SLOT_TITLE,
   buildAutoSlotKey,
-  reconcileFreeSlots
+  reconcileFreeSlots,
 } from "@/features/gym-schedule/service";
 import { cancelSessionWithDb } from "./service";
 import { createSessionSchema, updateSessionSchema } from "./schemas";
@@ -29,6 +30,13 @@ const ACTIVE_BOOKING_STATUSES = ["pending", "completed", "no_show"] as const;
 
 function buildScheduleRedirect(toast: string) {
   return `/admin/schedule?toast=${encodeURIComponent(toast)}`;
+}
+
+function revalidateScheduleViews() {
+  revalidatePath("/admin");
+  revalidatePath("/admin/schedule");
+  revalidatePath("/client/schedule");
+  revalidatePath("/trainer/schedule");
 }
 
 function getSessionPayload(formData: FormData) {
@@ -40,9 +48,13 @@ function getSessionPayload(formData: FormData) {
     startTime: String(formData.get("startTime") ?? ""),
     durationMinutes: String(formData.get("durationMinutes") ?? ""),
     capacity: String(formData.get("capacity") ?? ""),
-    cancellationDeadlineHours: String(formData.get("cancellationDeadlineHours") ?? ""),
+    cancellationDeadlineHours: String(
+      formData.get("cancellationDeadlineHours") ?? "",
+    ),
     dropInEnabled: formData.get("dropInEnabled") === "on",
-    dropInPrice: formData.get("dropInPrice") ? String(formData.get("dropInPrice")) : undefined,
+    dropInPrice: formData.get("dropInPrice")
+      ? String(formData.get("dropInPrice"))
+      : undefined,
   };
 }
 
@@ -151,8 +163,12 @@ export async function createSession(
   }
 
   await reconcileFreeSlots().catch((error) => {
-    console.error("[sessions.actions] reconcileFreeSlots failed after create", error);
+    console.error(
+      "[sessions.actions] reconcileFreeSlots failed after create",
+      error,
+    );
   });
+  revalidateScheduleViews();
 
   redirect(buildScheduleRedirect("session-created"));
 }
@@ -273,8 +289,12 @@ export async function updateSession(
   }
 
   await reconcileFreeSlots().catch((error) => {
-    console.error("[sessions.actions] reconcileFreeSlots failed after update", error);
+    console.error(
+      "[sessions.actions] reconcileFreeSlots failed after update",
+      error,
+    );
   });
+  revalidateScheduleViews();
 
   redirect(buildScheduleRedirect("session-updated"));
 }
@@ -311,21 +331,23 @@ export async function cancelSession(
     logPrismaError("sessions.cancelSession", error, startedAt);
 
     return getActionError(
-      getDatabaseActionErrorMessage(
-        error,
-        "Не удалось отменить занятие.",
-        {
-          preserveKnownErrorMessage: true,
-        },
-      ),
+      getDatabaseActionErrorMessage(error, "Не удалось отменить занятие.", {
+        preserveKnownErrorMessage: true,
+      }),
     );
   }
 
   await reconcileFreeSlots().catch((error) => {
-    console.error("[sessions.actions] reconcileFreeSlots failed after cancel", error);
+    console.error(
+      "[sessions.actions] reconcileFreeSlots failed after cancel",
+      error,
+    );
   });
+  revalidateScheduleViews();
 
-  redirect(buildScheduleRedirect(`session-cancelled:${cancelledBookingsCount}`));
+  redirect(
+    buildScheduleRedirect(`session-cancelled:${cancelledBookingsCount}`),
+  );
 }
 
 export async function returnSessionToFreeSlot(
@@ -356,7 +378,9 @@ export async function returnSessionToFreeSlot(
     }
 
     if (session.status !== "scheduled" || session.startsAt <= new Date()) {
-      return getActionError("В свободный слот можно вернуть только будущее занятие.");
+      return getActionError(
+        "В свободный слот можно вернуть только будущее занятие.",
+      );
     }
 
     await prisma.session.update({
@@ -391,8 +415,12 @@ export async function returnSessionToFreeSlot(
   }
 
   await reconcileFreeSlots().catch((error) => {
-    console.error("[sessions.actions] reconcileFreeSlots failed after return to free", error);
+    console.error(
+      "[sessions.actions] reconcileFreeSlots failed after return to free",
+      error,
+    );
   });
+  revalidateScheduleViews();
 
   redirect(buildScheduleRedirect("session-updated"));
 }

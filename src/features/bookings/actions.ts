@@ -44,7 +44,10 @@ export type BookingActionError = {
   code: BookingErrorCode;
 };
 
-export type BookingActionState = BookingActionSuccess | BookingActionError | undefined;
+export type BookingActionState =
+  | BookingActionSuccess
+  | BookingActionError
+  | undefined;
 
 export type BookingQrTokenActionState =
   | {
@@ -119,6 +122,7 @@ function revalidateBookingViews() {
   revalidatePath("/admin/schedule");
   revalidatePath("/trainer");
   revalidatePath("/trainer/scan");
+  revalidatePath("/trainer/schedule");
 }
 
 async function incrementGymOccupancyForAttendance(result: AttendanceResult) {
@@ -253,7 +257,9 @@ export async function getBookingQrToken(
         sessionId: booking.sessionId,
         now,
       }),
-      expiresAt: new Date(now.getTime() + BOOKING_QR_TOKEN_TTL_MS).toISOString(),
+      expiresAt: new Date(
+        now.getTime() + BOOKING_QR_TOKEN_TTL_MS,
+      ).toISOString(),
     };
   } catch (error) {
     return toErrorState(error);
@@ -313,10 +319,15 @@ export async function confirmAttendanceFromQr(
           throw new BookingServiceError("INVALID_QR_TOKEN");
         }
 
-        return confirmAttendanceForBooking(tx, verifiedToken.bookingId, actor.id, {
-          method: "qr",
-          requireQrWindow: true,
-        });
+        return confirmAttendanceForBooking(
+          tx,
+          verifiedToken.bookingId,
+          actor.id,
+          {
+            method: "qr",
+            requireQrWindow: true,
+          },
+        );
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
