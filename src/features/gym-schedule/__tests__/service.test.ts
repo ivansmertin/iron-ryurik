@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildFreeSlotCandidates,
@@ -163,6 +164,8 @@ describe("gym schedule free slots", () => {
             description: null,
             trainerId: null,
             cancellationDeadlineHours: 2,
+            dropInEnabled: true,
+            dropInPrice: null,
             bookings: [],
           },
         ]),
@@ -189,6 +192,116 @@ describe("gym schedule free slots", () => {
     expect(upsertedKeys).not.toContain("free:2026-04-13:0900");
     // But other slots (10:00, 11:00) should be upserted as they are new
     expect(upsertedKeys).toContain("free:2026-04-13:1000");
+  });
+
+  // Регрессия: свободные тренировки должны быть доступны клиенту для разовой
+  // записи, иначе клиент без абонемента не может записаться — см. баг
+  // "у клиента в расписании видны только групповые слоты".
+  it("creates auto_free slots with drop-in enabled and synced price", async () => {
+    const db = {
+      session: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+        upsert: vi.fn(),
+      },
+    };
+
+    await reconcileFreeSlotsWithDb(
+      db as never,
+      {
+        freeSlotCapacity: 8,
+        freeSlotDurationMinutes: 60,
+        freeSlotDropInPrice: 750,
+        workingHours: workingHours(),
+      },
+      mondayNow,
+    );
+
+    expect(db.session.upsert).toHaveBeenCalled();
+    for (const [input] of db.session.upsert.mock.calls) {
+      expect(input.create.dropInEnabled).toBe(true);
+      expect(input.create.dropInPrice).toBeInstanceOf(Prisma.Decimal);
+      expect(input.create.dropInPrice.equals(new Prisma.Decimal(750))).toBe(true);
+      expect(input.update.dropInEnabled).toBe(true);
+      expect(input.update.dropInPrice.equals(new Prisma.Decimal(750))).toBe(true);
+    }
+  });
+
+  it("re-syncs existing auto_free slot when drop-in fields are stale", async () => {
+    const db = {
+      session: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "existing-1",
+            origin: "auto_free",
+            autoSlotKey: "free:2026-04-13:0900",
+            startsAt: new Date("2026-04-13T06:00:00.000Z"),
+            durationMinutes: 60,
+            status: "scheduled",
+            title: "Свободная тренировка",
+            capacity: 8,
+            description: null,
+            trainerId: null,
+            cancellationDeadlineHours: 2,
+            // Устаревшее состояние — слот был создан до фикса
+            dropInEnabled: false,
+            dropInPrice: null,
+            bookings: [],
+          },
+        ]),
+        deleteMany: vi.fn(),
+        upsert: vi.fn(),
+      },
+    };
+
+    await reconcileFreeSlotsWithDb(
+      db as never,
+      {
+        freeSlotCapacity: 8,
+        freeSlotDurationMinutes: 60,
+        freeSlotDropInPrice: 500,
+        workingHours: workingHours(),
+      },
+      mondayNow,
+    );
+
+    const upsertCall = db.session.upsert.mock.calls.find(
+      ([input]) => input.where.autoSlotKey === "free:2026-04-13:0900",
+    );
+    expect(upsertCall).toBeDefined();
+    expect(upsertCall![0].update.dropInEnabled).toBe(true);
+    expect(upsertCall![0].update.dropInPrice.equals(new Prisma.Decimal(500))).toBe(
+      true,
+    );
+  });
+
+  it("keeps drop-in enabled but clears price when freeSlotDropInPrice is 0", async () => {
+    const db = {
+      session: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+        upsert: vi.fn(),
+      },
+    };
+
+    await reconcileFreeSlotsWithDb(
+      db as never,
+      {
+        freeSlotCapacity: 8,
+        freeSlotDurationMinutes: 60,
+        freeSlotDropInPrice: 0,
+        workingHours: workingHours(),
+      },
+      mondayNow,
+    );
+
+    expect(db.session.upsert).toHaveBeenCalled();
+    for (const [input] of db.session.upsert.mock.calls) {
+      expect(input.create.dropInEnabled).toBe(true);
+      expect(input.create.dropInPrice).toBeNull();
+      expect(input.update.dropInEnabled).toBe(true);
+      expect(input.update.dropInPrice).toBeNull();
+    }
   });
 
   it("handles long manual sessions blocking multiple slots", async () => {

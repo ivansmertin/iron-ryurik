@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import {
   getMoscowDateKey,
   getMoscowDateTimeParts,
@@ -50,6 +50,8 @@ type SessionForOverlap = {
   description: string | null;
   trainerId: string | null;
   cancellationDeadlineHours: number;
+  dropInEnabled: boolean;
+  dropInPrice: Prisma.Decimal | null;
 };
 
 type FreeSlotExisting = SessionForOverlap & {
@@ -333,6 +335,10 @@ export async function reconcileFreeSlotsWithDb(
     weekRange.start.getTime() + (FREE_SLOT_HORIZON_WEEKS_AHEAD + 1) * 7 * DAY_MS,
   );
 
+  const freeDropInPriceNumber = normalizedInput.freeSlotDropInPrice;
+  const freeDropInPriceDecimal =
+    freeDropInPriceNumber > 0 ? new Prisma.Decimal(freeDropInPriceNumber) : null;
+
   const existingSessions = await db.session.findMany({
     where: {
       startsAt: {
@@ -352,6 +358,8 @@ export async function reconcileFreeSlotsWithDb(
       description: true,
       trainerId: true,
       cancellationDeadlineHours: true,
+      dropInEnabled: true,
+      dropInPrice: true,
       bookings: {
         where: {
           status: {
@@ -420,6 +428,11 @@ export async function reconcileFreeSlotsWithDb(
       ? Math.max(candidate.capacity, activeBookingsCount)
       : candidate.capacity;
 
+    const existingPrice = existing.dropInPrice ?? null;
+    const priceMismatch = freeDropInPriceDecimal
+      ? !existingPrice || !existingPrice.equals(freeDropInPriceDecimal)
+      : existingPrice !== null;
+
     // Проверяем, изменилось ли что-то существенное, чтобы не дергать базу лишний раз
     return (
       existing.status !== "scheduled" ||
@@ -428,7 +441,9 @@ export async function reconcileFreeSlotsWithDb(
       existing.title !== FREE_SLOT_TITLE ||
       existing.description !== null ||
       existing.trainerId !== null ||
-      existing.cancellationDeadlineHours !== 2
+      existing.cancellationDeadlineHours !== 2 ||
+      existing.dropInEnabled !== true ||
+      priceMismatch
     );
   });
 
@@ -450,6 +465,12 @@ export async function reconcileFreeSlotsWithDb(
           ? Math.max(candidate.capacity, activeBookingsCount)
           : candidate.capacity,
         cancellationDeadlineHours: 2,
+        // Клиент без абонемента должен иметь возможность записаться на свободную
+        // тренировку по разовой цене из GymSettings. Держим dropInEnabled=true и
+        // синхронизируем dropInPrice, чтобы UI показал кнопку разовой записи, а
+        // bookSessionForUser пошёл по drop-in-ветке при отсутствии абонемента.
+        dropInEnabled: true,
+        dropInPrice: freeDropInPriceDecimal,
       },
       create: {
         type: "group",
@@ -460,6 +481,8 @@ export async function reconcileFreeSlotsWithDb(
         durationMinutes: candidate.durationMinutes,
         capacity: candidate.capacity,
         cancellationDeadlineHours: 2,
+        dropInEnabled: true,
+        dropInPrice: freeDropInPriceDecimal,
       },
     });
   }

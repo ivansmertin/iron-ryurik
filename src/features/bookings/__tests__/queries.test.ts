@@ -126,6 +126,49 @@ describe("client booking membership queries", () => {
     );
   });
 
+  // Регрессия: клиент должен видеть и свободные тренировки (origin=auto_free),
+  // а не только ручные групповые сессии — см. баг "у клиента в расписании
+  // видны только групповые слоты, хотя у админа выставлено множество свободных".
+  it("includes auto_free sessions in the client schedule (filter is type=group, not origin)", async () => {
+    prismaMock.membership.findMany.mockResolvedValue([]);
+    prismaMock.session.findMany.mockResolvedValue([
+      {
+        id: "manual-1",
+        title: "Гиревая тренировка",
+        description: null,
+        startsAt: new Date("2026-04-18T11:30:00.000Z"),
+        durationMinutes: 60,
+        capacity: 4,
+        dropInEnabled: false,
+        dropInPrice: null,
+        bookings: [],
+      },
+      {
+        id: "free-1",
+        title: "Свободная тренировка",
+        description: null,
+        startsAt: new Date("2026-04-20T09:00:00.000Z"),
+        durationMinutes: 60,
+        capacity: 8,
+        dropInEnabled: true,
+        dropInPrice: null,
+        bookings: [],
+      },
+    ]);
+
+    const result = await getClientScheduleData("user-1", "this-week", now);
+
+    expect(result.sessions.map((session) => session.id)).toEqual([
+      "manual-1",
+      "free-1",
+    ]);
+
+    const whereArg = prismaMock.session.findMany.mock.calls[0]?.[0];
+    expect(whereArg.where).not.toHaveProperty("origin");
+    expect(whereArg.where.type).toBe("group");
+    expect(whereArg.where.status).toBe("scheduled");
+  });
+
   it("falls back to legacy session schema when dropIn columns are missing", async () => {
     prismaMock.membership.findMany.mockResolvedValue([]);
     prismaMock.session.findMany

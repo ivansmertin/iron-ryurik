@@ -102,7 +102,7 @@ export default async function ClientSchedulePage({
       <div className="space-y-6">
         <PageHeader
           title="Расписание"
-          description="Только групповые слоты. Записывайтесь на удобное время и следите за заполнением."
+          description="Групповые занятия и свободные тренировки зала. Записывайтесь на удобное время и следите за заполнением."
         />
 
         <TabLinks
@@ -138,7 +138,7 @@ export default async function ClientSchedulePage({
     <div className="space-y-6">
       <PageHeader
         title="Расписание"
-        description="Только групповые слоты. Записывайтесь на удобное время и следите за заполнением."
+        description="Групповые занятия и свободные тренировки зала. Записывайтесь на удобное время и следите за заполнением."
       />
 
       <TabLinks
