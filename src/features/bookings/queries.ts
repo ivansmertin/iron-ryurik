@@ -336,7 +336,8 @@ export async function getClientScheduleData(
     async () => {
       const { start, end } = getScheduleRange(period, now);
 
-      const memberships = await prisma.membership.findMany({
+      const [memberships, sessions] = await Promise.all([
+        prisma.membership.findMany({
         where: {
           userId,
           status: "active",
@@ -363,17 +364,16 @@ export async function getClientScheduleData(
             },
           },
         },
-      });
+        }),
+        listClientScheduleSessionsWithSchemaFallback(start, end),
+      ]);
 
       const bookableMembership =
         memberships.map(addMembershipAvailability).find((membership) =>
           membership.availableSessions > 0
         ) ?? null;
 
-      const sessions = await listClientScheduleSessionsWithSchemaFallback(
-        start,
-        end,
-      );
+
 
       return {
         sessions,

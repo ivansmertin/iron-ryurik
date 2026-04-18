@@ -45,7 +45,19 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(git push:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(claude mcp:*)",
+      "Bash(npx skills:*)",
+      "Bash(pnpm build:*)",
+      "Bash(find /c/Users/iwans/Desktop/Dev/Iron_Rurik_App/prisma/migrations -name \"*.sql\" -exec grep -l \"GymState\\\\|GymSettings\" {} \\\\;)",
+      "Bash(xargs grep:*)",
+      "Bash([ -d \"C:/Users/iwans/Desktop/Dev/Iron_Rurik_App/src/app/api/webhooks\" ])",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__list_tables",
+      "Bash(gh auth:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

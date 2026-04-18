@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useOptimistic, useTransition, startTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { bookSession } from "@/features/bookings/actions";
@@ -37,6 +37,12 @@ export function SessionBookingButton({
     undefined,
   );
 
+  const [optimisticMode, addOptimisticMode] = useOptimistic(
+    mode,
+    // When an action starts, we want to show 'booked' state immediately
+    () => "booked" as BookingButtonMode
+  );
+
   useEffect(() => {
     if (!state) {
       return;
@@ -56,29 +62,37 @@ export function SessionBookingButton({
     toast.success(message);
   }, [sessionTitle, state]);
 
-  if (mode !== "bookable" && mode !== "drop-in") {
+  // Use the optimistic mode for rendering the "booked" state
+  if (optimisticMode !== "bookable" && optimisticMode !== "drop-in") {
     return (
       <Button
         type="button"
-        variant={mode === "booked" ? "secondary" : "outline"}
+        variant={optimisticMode === "booked" ? "secondary" : "outline"}
         disabled
-        title={buttonTitles[mode]}
+        title={buttonTitles[optimisticMode]}
       >
-        {buttonLabels[mode]}
+        {buttonLabels[optimisticMode]}
       </Button>
     );
   }
 
-  const label = mode === "drop-in" && price 
+  const label = optimisticMode === "drop-in" && price 
     ? `Записаться за ${price} ₽` 
-    : buttonLabels[mode];
+    : buttonLabels[optimisticMode];
+
+  const handleAction = (formData: FormData) => {
+    startTransition(() => {
+      addOptimisticMode("booked");
+    });
+    formAction(formData);
+  };
 
   return (
-    <form action={formAction}>
+    <form action={handleAction}>
       <Button 
         type="submit" 
         disabled={pending}
-        title={buttonTitles[mode]}
+        title={buttonTitles[optimisticMode]}
       >
         {pending ? "Записываем..." : label}
       </Button>

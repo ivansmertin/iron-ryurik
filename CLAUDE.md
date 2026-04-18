@@ -42,3 +42,44 @@
 ### Триггер handle_new_user
 - Функция использует `SET search_path = ''` — все типы и таблицы должны быть с явным префиксом `public.`
 - Enum каст: `'client'::public."UserRole"`, НЕ `'client'::"UserRole"` — иначе "type does not exist"
+
+### Мокирование Prisma в тестах (vitest-mock-extended)
+- **ПРАВИЛЬНЫЙ** паттерн — мокировать СИНГЛТОН из `@/lib/prisma`, не саму библиотеку:
+  ```ts
+  import { mockDeep, mockReset } from "vitest-mock-extended";
+  import { prisma } from "@/lib/prisma";
+
+  vi.mock("@/lib/prisma", () => ({
+    prisma: mockDeep<import("@prisma/client").PrismaClient>(),
+  }));
+
+  const mockPrisma = prisma as ReturnType<typeof mockDeep<import("@prisma/client").PrismaClient>>;
+
+  beforeEach(() => { mockReset(mockPrisma); });
+  ```
+- **НЕЛЬЗЯ** писать `vi.mock("@prisma/client")` — это мокает библиотеку целиком, синглтон `prisma` при этом не заменяется
+- `$transaction` нужно мокировать явно: `mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma))`
+
+### Миграции с триггерами на auth.* — НЕ migrate dev
+- `prisma migrate dev` создаёт shadow DB, которая не имеет доступа к схеме `auth` Supabase → миграция падает
+- Для любой SQL-миграции, затрагивающей `auth.*` (функции, триггеры), использовать:
+  ```bash
+  # 1. Применить SQL напрямую
+  pnpm exec prisma db execute --file prisma/migrations/<timestamp>_<name>/migration.sql
+  # 2. Отметить миграцию как выполненную в истории Prisma
+  pnpm exec prisma migrate resolve --applied <timestamp>_<name>
+  ```
+- Обычные миграции (только `public.*`) — `prisma migrate dev` работает нормально
+
+### prisma generate без реальных переменных окружения
+- `prisma.config.ts` читает `.env.local` через dotenv при старте — без переменных команда упадёт
+- Для генерации клиента без реального подключения (CI, чистая машина):
+  ```bash
+  DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" DIRECT_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm db:generate
+  ```
+- Скрипт `postinstall` в `package.json` также вызывает `prisma generate` — при `pnpm install` нужны те же env-переменные или они уже должны быть в окружении
+
+### Driver Adapter — new PrismaClient() нельзя использовать напрямую
+- В этом проекте Prisma Client работает через `@prisma/adapter-pg` (pg pool на порту 6543)
+- **НЕЛЬЗЯ** писать `new PrismaClient()` без адаптера — он попытается подключиться напрямую через Prisma engine и не будет использовать пулер
+- Весь доступ к БД идёт через синглтон `prisma` из `src/lib/prisma.ts`; импортировать `PrismaClient` напрямую и инстанциировать его вне этого файла — запрещено

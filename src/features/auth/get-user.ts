@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { UserRole } from "@prisma/client";
 import { getRoleHomeRoute } from "@/features/auth/role";
@@ -5,7 +6,7 @@ import { withPrismaReadRetry } from "@/lib/prisma-read";
 import { getCachedSupabaseUser } from "@/lib/supabase/cached-user";
 import { prisma } from "@/lib/prisma";
 
-export async function requireUser(requiredRole?: string) {
+export const requireUser = cache(async (requiredRole?: string) => {
   const authUser = await getCachedSupabaseUser();
 
   if (!authUser) redirect("/login");
@@ -26,7 +27,7 @@ export async function requireUser(requiredRole?: string) {
   }
 
   return dbUser;
-}
+});
 
 export async function requireUserRole(requiredRoles: UserRole[]) {
   const user = await requireUser();

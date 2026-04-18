@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   compress: true,
@@ -28,6 +29,14 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+  },
 };
 
-export default nextConfig;
+export default process.env.ANALYZE === "true"
+  ? withBundleAnalyzer({ enabled: true })(nextConfig)
+  : nextConfig;

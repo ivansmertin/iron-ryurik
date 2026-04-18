@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useOptimistic, startTransition } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -33,6 +33,11 @@ export function CancelBookingButton({
     undefined,
   );
 
+  const [isOptimisticCancelled, addOptimisticCancel] = useOptimistic(
+    false,
+    () => true
+  );
+
   useEffect(() => {
     if (!state) {
       return;
@@ -50,6 +55,21 @@ export function CancelBookingButton({
     );
   }, [sessionTitle, state]);
 
+  if (isOptimisticCancelled) {
+    return (
+      <Button variant="ghost" size="sm" disabled>
+        Отменено
+      </Button>
+    );
+  }
+
+  const handleAction = (formData: FormData) => {
+    startTransition(() => {
+      addOptimisticCancel(true);
+    });
+    formAction(formData);
+  };
+
   return (
     <AlertDialog>
       <AlertDialogTrigger
@@ -65,7 +85,7 @@ export function CancelBookingButton({
             Занятие ещё не списано, поэтому отмена просто освободит резерв.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <form action={formAction}>
+        <form action={handleAction}>
           <AlertDialogFooter>
             <AlertDialogCancel>Назад</AlertDialogCancel>
             <AlertDialogAction type="submit" variant="destructive" disabled={pending}>

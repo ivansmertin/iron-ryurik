@@ -17,7 +17,6 @@ import {
 import { formatMoscowDateTime } from "@/lib/formatters";
 import { getSearchParamValue, parsePositivePage } from "@/lib/search-params";
 import { CancelSessionButton } from "@/features/sessions/components/cancel-session-button";
-import { reconcileFreeSlots } from "@/features/gym-schedule/service";
 import {
   listSessions,
   sessionListTabs,
@@ -50,9 +49,7 @@ export default async function SchedulePage({
   const page = parsePositivePage(resolvedSearchParams.page);
   const toastKey = getSearchParamValue(resolvedSearchParams.toast);
 
-  await reconcileFreeSlots().catch((error) => {
-    console.error("[admin-schedule] reconcileFreeSlots failed", error);
-  });
+
 
   const sessions = await listSessions({
     tab,

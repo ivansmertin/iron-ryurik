@@ -17,7 +17,11 @@ import {
   getDatabaseActionErrorMessage,
   logPrismaError,
 } from "@/lib/prisma-errors";
-import { FREE_SLOT_TITLE, buildAutoSlotKey } from "@/features/gym-schedule/service";
+import { 
+  FREE_SLOT_TITLE, 
+  buildAutoSlotKey,
+  reconcileFreeSlots
+} from "@/features/gym-schedule/service";
 import { cancelSessionWithDb } from "./service";
 import { createSessionSchema, updateSessionSchema } from "./schemas";
 
@@ -146,6 +150,10 @@ export async function createSession(
     );
   }
 
+  await reconcileFreeSlots().catch((error) => {
+    console.error("[sessions.actions] reconcileFreeSlots failed after create", error);
+  });
+
   redirect(buildScheduleRedirect("session-created"));
 }
 
@@ -264,6 +272,10 @@ export async function updateSession(
     );
   }
 
+  await reconcileFreeSlots().catch((error) => {
+    console.error("[sessions.actions] reconcileFreeSlots failed after update", error);
+  });
+
   redirect(buildScheduleRedirect("session-updated"));
 }
 
@@ -308,6 +320,10 @@ export async function cancelSession(
       ),
     );
   }
+
+  await reconcileFreeSlots().catch((error) => {
+    console.error("[sessions.actions] reconcileFreeSlots failed after cancel", error);
+  });
 
   redirect(buildScheduleRedirect(`session-cancelled:${cancelledBookingsCount}`));
 }
@@ -373,6 +389,10 @@ export async function returnSessionToFreeSlot(
       ),
     );
   }
+
+  await reconcileFreeSlots().catch((error) => {
+    console.error("[sessions.actions] reconcileFreeSlots failed after return to free", error);
+  });
 
   redirect(buildScheduleRedirect("session-updated"));
 }
