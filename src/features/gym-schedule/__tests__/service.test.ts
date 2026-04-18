@@ -51,6 +51,7 @@ describe("gym schedule free slots", () => {
           },
         ]),
         deleteMany: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         upsert: vi.fn(),
       },
     };
@@ -90,6 +91,7 @@ describe("gym schedule free slots", () => {
           },
         ]),
         deleteMany: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         upsert: vi.fn(),
       },
     };
@@ -128,6 +130,7 @@ describe("gym schedule free slots", () => {
             bookings: [{ id: "booking-1" }],
           },
         ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
     };
 
@@ -171,6 +174,7 @@ describe("gym schedule free slots", () => {
         ]),
         upsert: vi.fn(),
         deleteMany: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
     };
 
@@ -202,6 +206,7 @@ describe("gym schedule free slots", () => {
       session: {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         upsert: vi.fn(),
       },
     };
@@ -227,6 +232,47 @@ describe("gym schedule free slots", () => {
     }
   });
 
+  it("synchronizes drop-in policy for all future auto_free slots, including outside horizon", async () => {
+    const db = {
+      session: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 42 }),
+        upsert: vi.fn(),
+      },
+    };
+
+    await reconcileFreeSlotsWithDb(
+      db as never,
+      {
+        freeSlotCapacity: 8,
+        freeSlotDurationMinutes: 60,
+        freeSlotDropInPrice: 600,
+        workingHours: workingHours(),
+      },
+      mondayNow,
+    );
+
+    expect(db.session.updateMany).toHaveBeenCalledWith({
+      where: {
+        origin: "auto_free",
+        status: "scheduled",
+        startsAt: {
+          gte: mondayNow,
+        },
+        OR: [
+          { dropInEnabled: false },
+          { dropInPrice: null },
+          { dropInPrice: { not: new Prisma.Decimal(600) } },
+        ],
+      },
+      data: {
+        dropInEnabled: true,
+        dropInPrice: new Prisma.Decimal(600),
+      },
+    });
+  });
+
   it("re-syncs existing auto_free slot when drop-in fields are stale", async () => {
     const db = {
       session: {
@@ -250,6 +296,7 @@ describe("gym schedule free slots", () => {
           },
         ]),
         deleteMany: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         upsert: vi.fn(),
       },
     };
@@ -280,6 +327,7 @@ describe("gym schedule free slots", () => {
       session: {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         upsert: vi.fn(),
       },
     };
@@ -319,6 +367,7 @@ describe("gym schedule free slots", () => {
           },
         ]),
         deleteMany: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         upsert: vi.fn(),
       },
     };

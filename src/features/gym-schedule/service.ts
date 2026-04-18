@@ -339,6 +339,36 @@ export async function reconcileFreeSlotsWithDb(
   const freeDropInPriceDecimal =
     freeDropInPriceNumber > 0 ? new Prisma.Decimal(freeDropInPriceNumber) : null;
 
+  // Backward compatibility: keep *all* future auto_free slots (including
+  // already generated outside the rolling reconcile horizon) aligned with the
+  // current drop-in policy so clients can book them immediately.
+  const dropInSyncConditions: Prisma.SessionWhereInput[] =
+    freeDropInPriceDecimal
+      ? [
+          { dropInEnabled: false },
+          { dropInPrice: null },
+          { dropInPrice: { not: freeDropInPriceDecimal } },
+        ]
+      : [
+          { dropInEnabled: false },
+          { dropInPrice: { not: null } },
+        ];
+
+  await db.session.updateMany({
+    where: {
+      origin: "auto_free",
+      status: "scheduled",
+      startsAt: {
+        gte: now,
+      },
+      OR: dropInSyncConditions,
+    },
+    data: {
+      dropInEnabled: true,
+      dropInPrice: freeDropInPriceDecimal,
+    },
+  });
+
   const existingSessions = await db.session.findMany({
     where: {
       startsAt: {

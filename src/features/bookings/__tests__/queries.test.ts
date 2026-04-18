@@ -126,15 +126,13 @@ describe("client booking membership queries", () => {
     );
   });
 
-  // Регрессия: клиент должен видеть и свободные тренировки (origin=auto_free),
-  // а не только ручные групповые сессии — см. баг "у клиента в расписании
-  // видны только групповые слоты, хотя у админа выставлено множество свободных".
   it("includes auto_free sessions in the client schedule (filter is type=group, not origin)", async () => {
     prismaMock.membership.findMany.mockResolvedValue([]);
     prismaMock.session.findMany.mockResolvedValue([
       {
         id: "manual-1",
-        title: "Гиревая тренировка",
+        origin: "manual",
+        title: "Manual group",
         description: null,
         startsAt: new Date("2026-04-18T11:30:00.000Z"),
         durationMinutes: 60,
@@ -145,7 +143,8 @@ describe("client booking membership queries", () => {
       },
       {
         id: "free-1",
-        title: "Свободная тренировка",
+        origin: "auto_free",
+        title: "Free slot",
         description: null,
         startsAt: new Date("2026-04-20T09:00:00.000Z"),
         durationMinutes: 60,
@@ -169,7 +168,7 @@ describe("client booking membership queries", () => {
     expect(whereArg.where.status).toBe("scheduled");
   });
 
-  it("falls back to legacy session schema when dropIn columns are missing", async () => {
+  it("treats legacy auto_free rows as drop-in enabled in fallback", async () => {
     prismaMock.membership.findMany.mockResolvedValue([]);
     prismaMock.session.findMany
       .mockRejectedValueOnce({
@@ -180,7 +179,8 @@ describe("client booking membership queries", () => {
       .mockResolvedValueOnce([
         {
           id: "session-1",
-          title: "Group Run",
+          origin: "auto_free",
+          title: "Legacy free slot",
           description: "Legacy schema row",
           startsAt: new Date("2026-04-15T10:00:00.000Z"),
           durationMinutes: 60,
@@ -195,12 +195,13 @@ describe("client booking membership queries", () => {
     expect(result.sessions).toEqual([
       {
         id: "session-1",
-        title: "Group Run",
+        origin: "auto_free",
+        title: "Legacy free slot",
         description: "Legacy schema row",
         startsAt: new Date("2026-04-15T10:00:00.000Z"),
         durationMinutes: 60,
         capacity: 12,
-        dropInEnabled: false,
+        dropInEnabled: true,
         dropInPrice: null,
         bookings: [{ userId: "user-2" }],
       },

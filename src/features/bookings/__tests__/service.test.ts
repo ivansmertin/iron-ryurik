@@ -17,6 +17,7 @@ const sessionRow = {
   capacity: 8,
   status: "scheduled",
   type: "group",
+  origin: "manual",
 };
 
 const membershipRow = {
@@ -32,6 +33,8 @@ function createBookingDb({
   membership = membershipRow,
   dropInEnabled = false,
   dropInPrice = null,
+  origin = "manual",
+  freeSlotDropInPrice = new Prisma.Decimal(0),
 }: {
   existingBooking?: {
     id: string;
@@ -41,9 +44,12 @@ function createBookingDb({
   membership?: typeof membershipRow | null;
   dropInEnabled?: boolean;
   dropInPrice?: Prisma.Decimal | null;
+  origin?: "manual" | "auto_free";
+  freeSlotDropInPrice?: Prisma.Decimal;
 } = {}) {
   const session = {
     ...sessionRow,
+    origin,
     dropInEnabled,
     dropInPrice,
   };
@@ -60,6 +66,11 @@ function createBookingDb({
     },
     membership: {
       update: vi.fn().mockResolvedValue({ id: membership?.id ?? "membership-1" }),
+    },
+    gymSettings: {
+      findUnique: vi.fn().mockResolvedValue({
+        freeSlotDropInPrice,
+      }),
     },
     dropInPass: {
       create: vi.fn().mockResolvedValue({ id: "drop-in-new" }),
@@ -245,6 +256,32 @@ describe("bookSessionForUser", () => {
         dropInId: "drop-in-new",
         status: "pending",
         bookedAt: now,
+      },
+    });
+  });
+
+  it("allows no-membership booking for legacy auto_free slots and uses gym price", async () => {
+    const db = createBookingDb({
+      membership: null,
+      origin: "auto_free",
+      dropInEnabled: false,
+      dropInPrice: null,
+      freeSlotDropInPrice: new Prisma.Decimal(750),
+    });
+
+    const result = await bookSessionForUser(db as never, "user-1", "session-1", now);
+
+    expect(result.dropInPassId).toBe("drop-in-new");
+    expect(db.gymSettings.findUnique).toHaveBeenCalledWith({
+      where: { id: 1 },
+      select: { freeSlotDropInPrice: true },
+    });
+    expect(db.dropInPass.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user-1",
+        sessionId: "session-1",
+        price: new Prisma.Decimal(750),
+        status: "pending",
       },
     });
   });

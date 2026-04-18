@@ -54,6 +54,7 @@ export type ClientUpcomingBooking = {
 
 export type ClientScheduleSession = {
   id: string;
+  origin: "manual" | "auto_free";
   title: string | null;
   description: string | null;
   startsAt: Date;
@@ -154,12 +155,22 @@ async function listClientScheduleSessionsWithSchemaFallback(
     },
   };
 
+  const normalizeSession = <T extends ClientScheduleSession>(session: T) => ({
+    ...session,
+    // Legacy auto_free rows can still have dropInEnabled=false.
+    // For client UX and booking flow compatibility we always expose them as
+    // drop-in eligible.
+    dropInEnabled:
+      session.origin === "auto_free" ? true : session.dropInEnabled,
+  });
+
   try {
-    return await prisma.session.findMany({
+    const sessions = await prisma.session.findMany({
       where,
       orderBy,
       select: {
         id: true,
+        origin: true,
         title: true,
         description: true,
         startsAt: true,
@@ -170,6 +181,8 @@ async function listClientScheduleSessionsWithSchemaFallback(
         bookings: bookingsSelect,
       },
     });
+
+    return sessions.map(normalizeSession);
   } catch (error) {
     if (
       !isPrismaSchemaMismatchError(error, {
@@ -191,6 +204,7 @@ async function listClientScheduleSessionsWithSchemaFallback(
       orderBy,
       select: {
         id: true,
+        origin: true,
         title: true,
         description: true,
         startsAt: true,
@@ -202,7 +216,7 @@ async function listClientScheduleSessionsWithSchemaFallback(
 
     return legacySessions.map((session) => ({
       ...session,
-      dropInEnabled: false,
+      dropInEnabled: session.origin === "auto_free",
       dropInPrice: null,
     }));
   }

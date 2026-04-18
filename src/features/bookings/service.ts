@@ -59,7 +59,13 @@ export class BookingServiceError extends Error {
 
 export type BookingMutationClient = Pick<
   Prisma.TransactionClient,
-  "session" | "booking" | "membership" | "workoutLog" | "dropInPass" | "$queryRaw"
+  | "session"
+  | "booking"
+  | "membership"
+  | "workoutLog"
+  | "dropInPass"
+  | "gymSettings"
+  | "$queryRaw"
 >;
 
 type LockedSessionRow = {
@@ -70,6 +76,7 @@ type LockedSessionRow = {
   capacity: number;
   status: string;
   type: string;
+  origin: "manual" | "auto_free";
   dropInEnabled: boolean;
   dropInPrice: Prisma.Decimal | null;
 };
@@ -197,6 +204,7 @@ async function lockSession(
       capacity,
       status,
       type,
+      origin,
       "dropInEnabled",
       "dropInPrice"
     FROM "Session"
@@ -211,6 +219,26 @@ async function lockSession(
   }
 
   return session;
+}
+
+async function resolveAutoFreeDropInPrice(
+  db: BookingMutationClient,
+): Promise<Prisma.Decimal> {
+  try {
+    const settings = await db.gymSettings.findUnique({
+      where: { id: 1 },
+      select: { freeSlotDropInPrice: true },
+    });
+    const price = settings?.freeSlotDropInPrice;
+
+    if (!price || price.lessThan(0)) {
+      return new Prisma.Decimal(0);
+    }
+
+    return price;
+  } catch {
+    return new Prisma.Decimal(0);
+  }
 }
 
 async function lockSessionForCancellation(
@@ -556,17 +584,24 @@ export async function bookSessionForUser(
     const membership = await lockMembershipForBooking(db, userId);
     membershipId = membership.id;
   } catch (error) {
+    const isAutoFreeDropIn = session.origin === "auto_free";
+    const canUseDropIn = session.dropInEnabled || isAutoFreeDropIn;
+
     if (
       error instanceof BookingServiceError &&
       error.code === "NO_ACTIVE_MEMBERSHIP" &&
-      session.dropInEnabled
+      canUseDropIn
     ) {
+      const dropInPrice = isAutoFreeDropIn
+        ? await resolveAutoFreeDropInPrice(db)
+        : (session.dropInPrice ?? new Prisma.Decimal(0));
+
       // Create a pending drop-in pass
       const dropInPass = await db.dropInPass.create({
         data: {
           userId,
           sessionId,
-          price: session.dropInPrice ?? 0,
+          price: dropInPrice,
           status: "pending",
         },
       });
